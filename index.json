@@ -1,0 +1,1 @@
+{"x/2":[[{"type":"id","value":"a"},{"type":"id","value":"b"}],[{"type":"id","value":"b"},{"type":"id","value":"c"}],[{"type":"id","value":"c"},{"type":"id","value":"d"}]],"y/2":[[{"type":"variable_name","value":"_h1"},{"type":"id","value":"b"}]],"z/3":[[{"type":"variable_name","value":"_h2"},{"type":"id","value":"b"},{"type":"variable_name","value":"_h2"}]]}
