@@ -3,7 +3,7 @@ import JSParse from "js-parse";
 const Parser = JSParse.Parser.LRParser;
 
 /**
- * Take statements from the parser and store them in some kind of structure 
+ * Take statements from the parser and store them in some kind of structure
  * eventually this structure will be used for querying by the runtime
  **/
 export default class Indexer {
@@ -71,7 +71,7 @@ export default class Indexer {
 				} else {
 					accept();
 				}
-			}); 
+			});
 		});
 	}
 
@@ -79,7 +79,7 @@ export default class Indexer {
 	 * Rebuild the index from a json file
 	 **/
 	deserializeFromFile(file) {
-		return new Promise((accept, reject) => { 
+		return new Promise((accept, reject) => {
 			fs.readFile(file, "ascii", (err,data) => {
 				if (err) {
 					reject(err);
@@ -100,43 +100,88 @@ export default class Indexer {
 	/**
 	 * Resolve a query statement
 	 **/
-	resolveStatement(statements, bindings={}) {
-		for(let i in statements) {
-			const statement = statements[i];
-			switch(statement.head) {
-				case "statement":
-					return this.resolveStatement(statement.body, bindings);
-					break ;
-				case "fact":
-					let newBindings = this.resolveFact(statement.body, bindings);
-					Object.assign(bindings, newBindings);
-					break ;
-				default:
-					throw "Unknown statement type: " + statement.head;
+	* resolveStatement(statements, bindings=[{}]) {
+		let results = [];
+
+		// if theres more than one statement,
+		// evaluate it for each binding but they must be ANDed together
+		// so bindings from resolving the first statement must be applied
+		// to the second
+		for(let b in bindings) {
+			let binding = bindings[b];
+
+			if(statements.head) {
+				switch(statements.head) {
+					// if its a statement, it should contain in its body
+					// a list of facts, so evaluate each of those.
+					case "statement":
+						let bindings = [binding];
+						for(let f in statements.body) {
+							// the results here will be a new array of bindings
+							// so future statements must be evaluated against all of these potential bindings
+							for(let newBinding of this.resolveStatement(statements.body[f], bindings)) {
+								yield newBinding;
+							}
+						}
+						break ;
+					case "fact":
+						// each result here is a new binding which can be returned asynchronously
+						for(let r of this.resolveFact(statements.body, binding)) {
+							yield r;
+						}
+						break ;
+				}
+			} else {
+				for(let s in statements) {
+					const statement = statements[s];
+					for(let result of this.resolveStatement(statement, [binding])) {
+						yield result;
+					}
+				}
 			}
 		}
 
-		return bindings;
+		// for(let i in statements) {
+		// 	const statement = statements[i];
+		// 	switch(statement.head) {
+		// 		case "statement":
+		// 			return this.resolveStatement(statement.body, bindings);
+		// 			break ;
+		// 		case "fact":
+		// 			console.log(statements, statement, bindings);
+		// 			for(let b in bindings) {
+		// 				const binding = bindings[b];
+		// 				let newBindings = this.resolveFact(statement.body, binding);
+		// 				for(let nb in newBindings) {
+		// 					results.push(Object.assign({}, binding, newBindings[nb]));
+		// 				}
+		// 			}
+		// 			break ;
+		// 		default:
+		// 			throw "Unknown statement type: " + statement.head;
+		// 	}
+		// }
+
+		return results;
 	}
 
 	/**
 	 * Resolve a fact query
 	 **/
-	resolveFact(statement, bindings={}) {
+	*resolveFact(statement, bindings={}) {
 		const symbol = statement[0].value;
 		const args = statement[1].body;
 		const arity = args.length;
 
-		const results = [];
 		if(this.index[symbol + "/" + arity]) {
 			for(let i in this.index[symbol + "/" + arity]) {
 				let res = this.unify(this.index[symbol + "/" + arity][i], args, bindings);
 				if(res) {
-					results.push(res);
+					yield res;
 				}
 			}
 		}
-		return results;
+		return null;
 	}
 
 	/**
@@ -165,8 +210,8 @@ export default class Indexer {
 	 * otherwise, return false
 	 **/
 	unify(base,query,b={}) {
-		let bindings = b;
-		console.verbose("[UNIFY]", Parser.prettyPrint(base), Parser.prettyPrint(query), bindings);
+		let bindings = Object.assign({}, b);
+		console.verbose("[UNIFY]", base, query, bindings);
 
 		// Dereference the terms in case they are bound variables
 		base = this.dereference(base, bindings);
@@ -200,8 +245,8 @@ export default class Indexer {
 			}
 		}
 
-		// If term1 is a variable and term2 is any type of term, 
-		// then term1 and term2 unify, and term1 is instantiated to term2 . 
+		// If term1 is a variable and term2 is any type of term,
+		// then term1 and term2 unify, and term1 is instantiated to term2 .
 		if(base.type && base.type === "variable_name") {
 			if(bindings[base.value]) return false;
 			console.verbose("[BIND]", base.value, query);
@@ -209,8 +254,8 @@ export default class Indexer {
 			return bindings;
 		}
 
-		// Similarly, if term2 is a variable and term1 is any type of term, 
-		// then term1 and term2 unify, and term2 is instantiated to term1 . 
+		// Similarly, if term2 is a variable and term1 is any type of term,
+		// then term1 and term2 unify, and term2 is instantiated to term1 .
 		if(query.type && query.type === "variable_name") {
 			if(bindings[query.value]) return false;
 			console.verbose("[BIND]", query.value, base);
@@ -221,16 +266,15 @@ export default class Indexer {
 		// If term1 and term2 are complex terms, then they unify if and only if:
 		// 	- They have the same functor and arity, and
 		//  - all their corresponding arguments unify, and
-		//  - the variable instantiations are compatible. 
-		//  	(For example, it is not possible to instantiate 
-		// 		variable X to mia when unifying one pair of arguments, 
+		//  - the variable instantiations are compatible.
+		//  	(For example, it is not possible to instantiate
+		// 		variable X to mia when unifying one pair of arguments,
 		// 		and to instantiate X to vincent when unifying another pair of arguments .)
 		for(let i in query) {
 			let qTerm = query[i];
 			let bTerm = base[i];
 			b = this.unify(bTerm, qTerm, bindings);
 			if(b === false) return false;
-			console.log(bindings, b);
 			bindings = Object.assign(bindings, b);
 		}
 

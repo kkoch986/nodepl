@@ -2,6 +2,7 @@
 import commandLineArgs from 'command-line-args';
 import getUsage from 'command-line-usage';
 
+import util from "util"
 import fs from "fs";
 import readline from "readline";
 import Grammars from "./grammar";
@@ -71,7 +72,7 @@ if(args.help === true) {
 	]
 	const usage = getUsage(sections)
 	console.log(usage)
-} 
+}
 /**
  * Execute a fact file.
  **/
@@ -122,7 +123,13 @@ else if(args.query) {
 		parser.on("error", (error) => {throw error.message});
 
 		parser.on("accept", (statement) => {
-			console.log(indexer.resolveStatement(statement, {}));
+			console.log("\nResults: ");
+			for(let result of indexer.resolveStatement(statement[0])) {
+				for(let key in result) {
+					console.log("\t" + key + " -> " + result[key].value);
+				}
+				console.log("");
+			}
 		})
 
 		const rd = readline.createInterface({
