@@ -10,26 +10,38 @@ describe("[Source File] Parse", function() {
 	/**
 	 * Parse a single fact.
 	 **/
-	it("accept basic fact", (done) => {
+	it("accept basic fact: a(b).", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "a(b).";
-		
+
 		parser.on("accept", (tok) => {
 			expect(tok.length).toBe(1);
 			const body = tok[0];
-			expect(body.head).toBe("statement_list");
-			expect(body.body.length).toBe(1);
-			expect(body.body[0].head).toBe("statement");
-			expect(body.body[0].body.length).toBe(1);
-			expect(body.body[0].body[0].head).toBe("fact");
-			expect(body.body[0].body[0].body.length).toBe(2);
-			expect(body.body[0].body[0].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[0].value).toBe("a");
-			expect(body.body[0].body[0].body[1].head).toBe("argument_list");
-			expect(body.body[0].body[0].body[1].body.length).toBe(1);
-			expect(body.body[0].body[0].body[1].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[0].value).toBe("b");
-
+			expect(body).toEqual({
+				"head":"statement_list",
+				"body":[
+					{
+						"head":"statement",
+						"body":[
+							{
+								"head":"fact",
+								"body":[
+									{"type":"id","value":"a"},
+									{
+										"head":"argument_list",
+										"body":[
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"b"}]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			});
 			done();
 		});
 		parser.on("error", (error) => {
@@ -43,25 +55,38 @@ describe("[Source File] Parse", function() {
 	/**
 	 * Parse a single with a numeric argument.
 	 **/
-	it("accept basic fact", (done) => {
+	it("accept basic fact with numeric literal a(12).", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "a(12).";
-		
+
 		parser.on("accept", (tok) => {
 			expect(tok.length).toBe(1);
 			const body = tok[0];
-			expect(body.head).toBe("statement_list");
-			expect(body.body.length).toBe(1);
-			expect(body.body[0].head).toBe("statement");
-			expect(body.body[0].body.length).toBe(1);
-			expect(body.body[0].body[0].head).toBe("fact");
-			expect(body.body[0].body[0].body.length).toBe(2);
-			expect(body.body[0].body[0].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[0].value).toBe("a");
-			expect(body.body[0].body[0].body[1].head).toBe("argument_list");
-			expect(body.body[0].body[0].body[1].body.length).toBe(1);
-			expect(body.body[0].body[0].body[1].body[0].type).toBe("numeric-literal");
-			expect(body.body[0].body[0].body[1].body[0].value).toBe("12");
+			expect(body).toEqual({
+				"head":"statement_list",
+				"body":[
+					{
+						"head":"statement",
+						"body":[
+							{
+								"head":"fact",
+								"body":[
+									{"type":"id","value":"a"},
+									{
+										"head":"argument_list",
+										"body":[
+											{
+												"head":"literal",
+												"body":[{"type":"numeric-literal","value":"12"}]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			});
 
 			done();
 		});
@@ -76,31 +101,50 @@ describe("[Source File] Parse", function() {
 	/**
 	 * Parse a single fact with some arity
 	 **/
-	it("accept basic fact", (done) => {
+	it("accept basic fact with multiple args. a(b,c,d,e).", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "a(b,c,d,e).";
-		
+
 		parser.on("accept", (tok) => {
 			expect(tok.length).toBe(1);
 			const body = tok[0];
-			expect(body.head).toBe("statement_list");
-			expect(body.body.length).toBe(1);
-			expect(body.body[0].head).toBe("statement");
-			expect(body.body[0].body.length).toBe(1);
-			expect(body.body[0].body[0].head).toBe("fact");
-			expect(body.body[0].body[0].body.length).toBe(2);
-			expect(body.body[0].body[0].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[0].value).toBe("a");
-			expect(body.body[0].body[0].body[1].head).toBe("argument_list");
-			expect(body.body[0].body[0].body[1].body.length).toBe(4);
-			expect(body.body[0].body[0].body[1].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[1].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[2].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[3].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[0].value).toBe("b");
-			expect(body.body[0].body[0].body[1].body[1].value).toBe("c");
-			expect(body.body[0].body[0].body[1].body[2].value).toBe("d");
-			expect(body.body[0].body[0].body[1].body[3].value).toBe("e");
+			expect(body).toEqual({
+				"head":"statement_list",
+				"body":[
+					{
+						"head":"statement",
+						"body":[
+							{
+								"head":"fact",
+								"body":[
+									{"type":"id","value":"a"},
+									{
+										"head":"argument_list",
+										"body":[
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"b"}]
+											},
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"c"}]
+											},
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"d"}]
+											},
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"e"}]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			});
 
 			done();
 		});
@@ -115,31 +159,47 @@ describe("[Source File] Parse", function() {
 	/**
 	 * Parse a single fact with some arity and a variable
 	 **/
-	it("accept basic fact", (done) => {
+	it("accept basic fact with variables and ids", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "a(b,C,d,e).";
-		
+
 		parser.on("accept", (tok) => {
 			expect(tok.length).toBe(1);
 			const body = tok[0];
-			expect(body.head).toBe("statement_list");
-			expect(body.body.length).toBe(1);
-			expect(body.body[0].head).toBe("statement");
-			expect(body.body[0].body.length).toBe(1);
-			expect(body.body[0].body[0].head).toBe("fact");
-			expect(body.body[0].body[0].body.length).toBe(2);
-			expect(body.body[0].body[0].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[0].value).toBe("a");
-			expect(body.body[0].body[0].body[1].head).toBe("argument_list");
-			expect(body.body[0].body[0].body[1].body.length).toBe(4);
-			expect(body.body[0].body[0].body[1].body[0].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[1].type).toBe("variable_name");
-			expect(body.body[0].body[0].body[1].body[2].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[3].type).toBe("id");
-			expect(body.body[0].body[0].body[1].body[0].value).toBe("b");
-			expect(body.body[0].body[0].body[1].body[1].value).toBe("C");
-			expect(body.body[0].body[0].body[1].body[2].value).toBe("d");
-			expect(body.body[0].body[0].body[1].body[3].value).toBe("e");
+			expect(body).toEqual({
+				"head":"statement_list",
+				"body":[
+					{
+						"head":"statement",
+						"body":[
+							{
+								"head":"fact",
+								"body":[
+									{"type":"id","value":"a"},
+									{
+										"head":"argument_list",
+										"body":[
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"b"}]
+											},
+											{"type":"variable_name","value":"C"},
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"d"}]
+											},
+											{
+												"head":"literal",
+												"body":[{"type":"id","value":"e"}]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			});
 
 			done();
 		});
@@ -157,7 +217,7 @@ describe("[Source File] Parse", function() {
 	it("reject variable as predicate name", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "A(b).";
-		
+
 		parser.on("accept", (tok) => {
 			fail("Should not have accepted this.");
 		});
@@ -175,7 +235,7 @@ describe("[Source File] Parse", function() {
 	it("reject just variable", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "A.";
-		
+
 		parser.on("accept", (tok) => {
 			fail("Should not have accepted this.");
 		});
@@ -193,7 +253,7 @@ describe("[Source File] Parse", function() {
 	it("reject just id", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "a.";
-		
+
 		parser.on("accept", (tok) => {
 			fail("Should not have accepted this.");
 		});
@@ -211,7 +271,7 @@ describe("[Source File] Parse", function() {
 	it("reject just number", (done) => {
 		const parser = Parser.CreateWithLexer(Grammars.src);
 		const testString = "1.";
-		
+
 		parser.on("accept", (tok) => {
 			fail("Should not have accepted this.");
 		});

@@ -8,18 +8,19 @@ export default {
 			"match":"[ \n\t]+",
 			"includeInStream":false
 		},
-		"numeric-literal":{ 
+		"numeric-literal":{
 			"terminal":true,
 			"match":"[0-9]*\\.?[0-9]+",
 			"matchCaseInsensitive":true
 		},
-		"string-literal": {
-			"terminal":true,
-			"match":"\"(.*)\""
-		},
 		"id": {
 			"terminal":true,
 			"match":"[a-z][a-zA-Z0-9_]*"
+		},
+		"string-literal": {
+			"terminal":true,
+			"match":"\"((?:[^\\\\\"]|\\\\.)*)\"",
+			"matchOnly": 1
 		},
 		"variable_name": {
 			"terminal":true,
@@ -69,7 +70,8 @@ export default {
 	"productions": {
 		"literal": [
 			[ "numeric-literal" ],
-			[ "string-literal" ]
+			[ "string-literal" ],
+			[ "id" ]
 		],
 		"statement": [
 			["concatenation", "dot"]
@@ -87,7 +89,6 @@ export default {
 		],
 		"argument": [
 			["literal"],
-			["id"],
 			["variable_name"]
 		],
 	},

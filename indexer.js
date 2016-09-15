@@ -1,6 +1,12 @@
+require('babel-polyfill');
 import fs from "fs"
 import JSParse from "js-parse";
 const Parser = JSParse.Parser.LRParser;
+
+// TODO: correctly handle String and numeric literals
+// TODO: refactor literals and ids, theres some confusion right now where
+// 		literals are more deeply nested than ids and they are trying to unify and failing
+// TODO: Figure out complex terms
 
 /**
  * Take statements from the parser and store them in some kind of structure
@@ -19,6 +25,8 @@ export default class Indexer {
 		switch(statement.head) {
 			case "fact":
 				return this.indexFact(statement.body);
+			case "rule":
+				return this.indexRule(statement.body);
 			default:
 				throw "Unknown statement type: " + statement.head;
 		}
@@ -36,8 +44,36 @@ export default class Indexer {
 		if(!this.index[symbol + "/" + arity]) {
 			this.index[symbol + "/" + arity] = [];
 		}
-		this.index[symbol + "/" + arity].push(args);
+		this.index[symbol + "/" + arity].push({"type": "fact", "body": args});
 	}
+
+	/**
+	 * Index a RULE statement
+	 */
+	indexRule(statement) {
+		const index = {type: "rule"};
+
+		// figure out where to put it
+		const head = statement[0].body;
+		const symbol = head[0].value;
+		const arity = head[1].body.length;
+
+		// anonymize the variables in the head
+		let mapping = this.anonymizeVariables(head[1].body);
+		index.head = head[1].body;
+
+		const body = statement[1].body;
+		index.body = [];
+		for(let i in body) {
+			mapping = this.anonymizeVariables(body[i].body[1].body, mapping);
+			index.body.push(body[i].body);
+		}
+
+		if(!this.index[symbol + "/" + arity]) {
+			this.index[symbol + "/" + arity] = [];
+		}
+		this.index[symbol + "/" + arity].push(index);
+ 	}
 
 	/**
 	 * Convert all variables in the given structure to anonymous names
@@ -100,108 +136,129 @@ export default class Indexer {
 	/**
 	 * Resolve a query statement
 	 **/
-	* resolveStatement(statements, bindings=[{}]) {
-		let results = [];
-
-		// if theres more than one statement,
-		// evaluate it for each binding but they must be ANDed together
-		// so bindings from resolving the first statement must be applied
-		// to the second
-		for(let b in bindings) {
-			let binding = bindings[b];
-
-			if(statements.head) {
-				switch(statements.head) {
-					// if its a statement, it should contain in its body
-					// a list of facts, so evaluate each of those.
-					case "statement":
-						let bindings = [binding];
-						for(let f in statements.body) {
-							// the results here will be a new array of bindings
-							// so future statements must be evaluated against all of these potential bindings
-							for(let newBinding of this.resolveStatement(statements.body[f], bindings)) {
-								yield newBinding;
-							}
-						}
-						break ;
-					case "fact":
-						// each result here is a new binding which can be returned asynchronously
-						for(let r of this.resolveFact(statements.body, binding)) {
-							yield r;
-						}
-						break ;
+	*resolveStatement(statement, bindings=[{}]) {
+		console.verbose("[ResolveStatement]", statement);
+		switch(statement.head) {
+			case "statement":
+				for(let r of this.resolveStatements(statement.body, bindings)) {
+					yield r;
 				}
-			} else {
-				for(let s in statements) {
-					const statement = statements[s];
-					for(let result of this.resolveStatement(statement, [binding])) {
-						yield result;
-					}
+				break ;
+			case "fact":
+				for(let r of this.resolveFact(statement.body, bindings)) {
+					yield r;
+				}
+				break ;
+			default:
+				throw "Unknown statement type: " + statement.head;
+		}
+	}
+
+	/**
+	 *  Resolve an array of statements
+	 */
+	*resolveStatements(statements, bindings=[{}]) {
+		console.verbose("[ResolveStatements]", statements);
+		// if there are no statements left, just return whatever bindings we
+		// already have.
+		if(statements.length === 0) {
+			for(let b in bindings) {
+				yield bindings[b];
+			}
+			return ;
+		}
+
+		// for each of the bindings given here we need to try everything
+		for(let b in bindings) {
+			// now find all of the results for the first statement
+			const binding = Object.assign({}, bindings[b]);
+			for(let r of this.resolveStatement(statements[0], [binding])) {
+				// now call resolveStatements with this binding
+				// and the tail of statements
+				for(let r2 of this.resolveStatements(statements.slice(1), [r])) {
+					yield r2;
 				}
 			}
 		}
-
-		// for(let i in statements) {
-		// 	const statement = statements[i];
-		// 	switch(statement.head) {
-		// 		case "statement":
-		// 			return this.resolveStatement(statement.body, bindings);
-		// 			break ;
-		// 		case "fact":
-		// 			console.log(statements, statement, bindings);
-		// 			for(let b in bindings) {
-		// 				const binding = bindings[b];
-		// 				let newBindings = this.resolveFact(statement.body, binding);
-		// 				for(let nb in newBindings) {
-		// 					results.push(Object.assign({}, binding, newBindings[nb]));
-		// 				}
-		// 			}
-		// 			break ;
-		// 		default:
-		// 			throw "Unknown statement type: " + statement.head;
-		// 	}
-		// }
-
-		return results;
 	}
 
 	/**
 	 * Resolve a fact query
 	 **/
-	*resolveFact(statement, bindings={}) {
+	*resolveFact(statement, bindings=[{}]) {
 		const symbol = statement[0].value;
 		const args = statement[1].body;
 		const arity = args.length;
+		console.verbose("[ResolveFact]", symbol, args);
 
 		if(this.index[symbol + "/" + arity]) {
 			for(let i in this.index[symbol + "/" + arity]) {
-				let res = this.unify(this.index[symbol + "/" + arity][i], args, bindings);
-				if(res) {
-					yield res;
+				const element = Object.assign({}, this.index[symbol + "/" + arity][i]);
+				switch(element.type) {
+					case "fact":
+						for(let b in bindings) {
+							let res = this.unify(element.body, args, bindings[b]);
+							if(res) {
+								yield res;
+							}
+						}
+						break ;
+					case "rule":
+						for(let b in bindings) {
+							// Unify the head of the statement against the bindings
+							let binding = this.unifyArray(statement[1].body, element.head, bindings[b]);
+							for(let result of this.resolveStatements(element.body.map(i => { return {head: "fact", body: i}; }), [binding])) {
+								yield result;
+							}
+						}
+						break ;
+					default:
+						throw "Unknown index element type: " + element.type;
 				}
 			}
 		}
-		return null;
 	}
 
 	/**
 	 * Take the given thing and bindings and if its a variable_name dereference it
 	 **/
-	dereference(x, bindings) {
-		if(x.type === "variable_name" && bindings[x.value]) {
-			const binding = bindings[x.value];
+	dereference(x, binding) {
+		if(x.type === "variable_name" && binding[x.value]) {
+			console.verbose("[Dereference]", x, binding);
+			const currentBinding = binding[x.value];
 			// if its a variable, dereference that. unless its this.
-			if(binding.type === "variable_name") {
-				if(binding.value === x.value) {
+			if(currentBinding.type === "variable_name") {
+				if(currentBinding.value === x.value) {
 					return x;
 				} else {
-					return dereference(binding);
+					return this.dereference(currentBinding, binding);
 				}
 			} else {
-				return binding;
+				return currentBinding;
 			}
 		}
+
+		// make sure numeric literals are numeric
+		// this helps with comparisons later i.e.
+		// 1 !== "1" but "a" === a
+		if(x.head === "literal" && x.body[0].type === "numeric-literal") {
+			x.body[0].value = parseFloat(x.body[0].value);
+		}
+
+		// unwrap literals
+		if(x.type === "string-literal" || x.type === "id" || x.type === "numeric-literal") {
+			return {head: "literal", body:[x]};
+		}
+
 		return x;
+	}
+
+	unifyArray(bases, queries, binding={}){
+		let currentBinding = binding;
+		for(let i in bases) {
+			currentBinding = this.unify(bases[i], queries[i], currentBinding);
+		}
+		return currentBinding;
 	}
 
 	/**
@@ -220,8 +277,8 @@ export default class Indexer {
 		console.verbose("[UNIFY-DEREF]", base, query, bindings);
 
 		// If term1 and term2 are constants, then term1 and term2 unify if and only if they are the same atom, or the same number.
-		if(base.type && base.type === "id" && query.type && query.type === "id") {
-			if(base.value === query.value) {
+		if(base.head && base.head === "literal" && query.head && query.head === "literal") {
+			if(base.body[0].value === query.body[0].value) {
 				return bindings;
 			} else {
 				return false;

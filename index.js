@@ -80,7 +80,6 @@ else if(args.src) {
 	// Create the parser and indexer
 	const parser = Parser.CreateWithLexer(Grammars.src);
 	const indexer = new Indexer();
-	console.verbose(parser.bnfString());
 
 	parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
 	parser.on("production", (tok) => console.verbose("PROD", tok));
@@ -111,26 +110,68 @@ else if(args.src) {
 else if(args.query) {
 	// Create the parser and indexer
 	const parser = Parser.CreateWithLexer(Grammars.query);
-	console.verbose(parser.bnfString());
+	const indexer = new Indexer();
+
+	// a function for printing the results
+	function printNext(results) {
+		let val = results.next().value;
+		if(!val) return false;
+
+
+		let printed = false;
+		for(let key in val) {
+
+			// Dont print any variables that start with "_"
+			if(key[0] === "_") continue ;
+
+			// a hack to make sure literals print correctly.
+			let outputVal = "unknown";
+			if(val[key].head && val[key].head === "literal") {
+				outputVal = val[key].body[0].value;
+			} else {
+				outputVal = indexer.dereference(val[key], val).value;
+			}
+
+			// print the result
+			console.log("\t" + key + " -> " + outputVal);
+			printed = true;
+		}
+		if(!printed) {
+			console.log("Yes.");
+		}
+		console.log();
+		return true;
+	}
+
+	// recursively loop over the results,
+	// print one and if the user enters a ; then print the next
+	// if we run out or the user enters anything else, break out of this
+	// and fire the callback.
+	// this works with results as the result of a generator, so it is
+	// totally lazy when it comes to evaluation. This means we dont have
+	// to traverse the entire results tree to get the first result.
+	function printAllResults(results, rd, callback) {
+		if(printNext(results)) {
+			rd.question('; ', (answer) => {
+				if(answer === ";") {
+					printAllResults(results, rd, callback);
+				} else {
+					callback();
+				}
+			});
+		} else {
+			callback();
+		}
+	}
 
 	// Load the indexer
-	const indexer = new Indexer();
 	console.verbose("[LOAD INDEXER]", args.query);
 	indexer.deserializeFromFile(args.query).then(() => {
+
 		parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
 		parser.on("production", (tok) => console.verbose("PROD", tok));
 		// parser.on("accept", (tok) => console.verbose("\n\nACCEPT", parser.prettyPrint("  ")));
 		parser.on("error", (error) => {throw error.message});
-
-		parser.on("accept", (statement) => {
-			console.log("\nResults: ");
-			for(let result of indexer.resolveStatement(statement[0])) {
-				for(let key in result) {
-					console.log("\t" + key + " -> " + result[key].value);
-				}
-				console.log("");
-			}
-		})
 
 		const rd = readline.createInterface({
 			input: process.stdin,
@@ -142,10 +183,18 @@ else if(args.query) {
 			rd.question('> ', (answer) => {
 				parser.append(answer);
 				parser.end();
-				next();
 			});
 		}
 		next();
+
+		parser.on("statement", (statement) => {
+			console.log("\nResults: ");
+			printAllResults(indexer.resolveStatements(statement), rd, () => {
+				console.log("Done.");
+				next();
+			});
+		});
+
 	}).catch((e) => {
 		console.err(e);
 	});

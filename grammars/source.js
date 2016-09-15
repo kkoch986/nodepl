@@ -8,14 +8,15 @@ export default {
 			"match":"[ \n\t]+",
 			"includeInStream":false
 		},
-		"numeric-literal":{ 
+		"numeric-literal":{
 			"terminal":true,
 			"match":"[0-9]*\\.?[0-9]+",
 			"matchCaseInsensitive":true
 		},
 		"string-literal": {
 			"terminal":true,
-			"match":"\"(.*)\""
+			"match":"\"((?:[^\\\\\"]|\\\\.)*)\"",
+			"matchOnly": 1
 		},
 		"id": {
 			"terminal":true,
@@ -24,6 +25,11 @@ export default {
 		"variable_name": {
 			"terminal":true,
 			"match":"[A-Z_][a-zA-Z0-9_]*"
+		},
+		"implies": {
+			"terminal":true,
+			"match":":-",
+			"excludeFromProduction":true
 		},
 		"open_paren": {
 			"terminal":true,
@@ -57,25 +63,37 @@ export default {
 			"terminal": false,
 			"mergeRecursive": true
 		},
+		"fact_list": {
+			"terminal": false,
+			"mergeRecursive": true
+		},
 		"literal":{
-			"terminal":false,
-			"mergeIntoParent":true
+			"terminal":false
 		}
 	},
 	"productions": {
 		"literal": [
 			[ "numeric-literal" ],
-			[ "string-literal" ]
+			[ "string-literal" ],
+			[ "id" ]
 		],
 		"statement_list": [
 			["statement_list", "statement"],
 			["statement"]
 		],
 		"statement": [
-			["fact", "dot"]
+			["fact", "dot"],
+			["rule", "dot"]
 		],
 		"fact": [
 			["id", "open_paren", "argument_list", "close_paren"]
+		],
+		"rule":[
+			["fact", "implies", "fact_list"]
+		],
+		"fact_list": [
+			["fact_list", "comma", "fact"],
+			["fact"]
 		],
 		"argument_list": [
 			["argument_list", "comma", "argument"],
@@ -83,9 +101,8 @@ export default {
 		],
 		"argument": [
 			["literal"],
-			["id"],
 			["variable_name"]
-		],
+		]
 	},
 	"startSymbols": [ "statement_list" ]
 };

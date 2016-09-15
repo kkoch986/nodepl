@@ -6,3 +6,15 @@ x(c,d).
 y(A,b).
 
 z(A,b,A).
+
+
+friend(alice, bob).
+friend(bob,charlie).
+friend(charlie, dan).
+
+a(alice).
+b(bob).
+fof(A,C) :- friend(A,B), friend(B,C).
+
+
+rdf(1,"Names",ken).
