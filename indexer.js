@@ -238,16 +238,16 @@ export default class Indexer {
 			}
 		}
 
+		// unwrap literals
+		if(x.type === "string-literal" || x.type === "id" || x.type === "numeric-literal") {
+			x = {head: "literal", body:[x]};
+		}
+
 		// make sure numeric literals are numeric
 		// this helps with comparisons later i.e.
 		// 1 !== "1" but "a" === a
 		if(x.head === "literal" && x.body[0].type === "numeric-literal") {
 			x.body[0].value = parseFloat(x.body[0].value);
-		}
-
-		// unwrap literals
-		if(x.type === "string-literal" || x.type === "id" || x.type === "numeric-literal") {
-			return {head: "literal", body:[x]};
 		}
 
 		return x;
