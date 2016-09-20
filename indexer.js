@@ -3,11 +3,6 @@ import fs from "fs"
 import JSParse from "js-parse";
 const Parser = JSParse.Parser.LRParser;
 
-// TODO: correctly handle String and numeric literals
-// TODO: refactor literals and ids, theres some confusion right now where
-// 		literals are more deeply nested than ids and they are trying to unify and failing
-// TODO: Figure out complex terms
-
 /**
  * Take statements from the parser and store them in some kind of structure
  * eventually this structure will be used for querying by the runtime
@@ -22,35 +17,95 @@ export default class Indexer {
 	 * Index the given statement
 	 **/
 	indexStatement(statement) {
+		let x = null;
 		switch(statement.head) {
 			case "fact":
-				return this.indexFact(statement.body);
+				x = this.indexFact(statement.body);
+				break ;
 			case "rule":
-				return this.indexRule(statement.body);
+				x = this.indexRule(statement.body);
+				break ;
 			default:
 				throw "Unknown statement type: " + statement.head;
 		}
+
+		if(x) {
+			if(!this.index[x.symbol + "/" + x.arity]) {
+				this.index[x.symbol + "/" + x.arity] = [];
+			}
+			this.index[x.symbol + "/" + x.arity].push(x.index);
+		}
+	}
+
+	/**
+	 * Index an ARGUMENT, using this for some syntactic sugars
+	 */
+	indexArgument(argument) {
+		console.verbose("[INDEX ARGUMENT]", argument);
+
+		// LIST syntax, convert to nested calls to "."()
+		if(argument.head && argument.head === "list") {
+			let structure = {
+				type: "fact",
+				symbol: ".",
+				body: []
+			};
+
+			let args = argument.body[0].body || [];
+			let current = structure;
+			for(let i in args) {
+				let arg = this.indexArgument(args[i]);
+				current.body.push(arg);
+				current.body.push({type: "fact", sybmol: ".", body: []});
+				current = current.body[1];
+			}
+
+			// TODO: remove the last part
+
+			return structure;
+		}
+
+		// for facts take the first part of the body and make it the symbol
+		if(argument.head === "fact") {
+			// TODO: figure out what to do if this is not an id or string literal
+			let symbol = argument.body[0].value;
+			argument.type = argument.head;
+			argument.symbol = symbol;
+			argument.body = argument.body[1].body.map(i => this.indexArgument(i));
+			delete argument.head;
+
+			return argument;
+		}
+
+		if(argument.head) {
+			let head = argument.head;
+			delete argument.head;
+			return Object.assign(argument, {type: head, body: argument.body.map(i => this.indexArgument(i))});
+		}
+		return argument;
 	}
 
 	/**
 	 * Index a FACT statement
 	 **/
 	indexFact(statement) {
+		console.verbose("[INDEX FACT]", statement);
 		const symbol = statement[0].value;
-		const args = statement[1].body;
+		const args = statement[1] ? statement[1].body : [];
 		this.anonymizeVariables(args);
 
 		const arity = args.length;
-		if(!this.index[symbol + "/" + arity]) {
-			this.index[symbol + "/" + arity] = [];
+		for(let i in args) {
+			args[i] = this.indexArgument(args[i]);
 		}
-		this.index[symbol + "/" + arity].push({"type": "fact", "body": args});
+		return {index: {"type": "fact", "symbol": symbol, "body": args}, arity: arity, symbol: symbol};
 	}
 
 	/**
 	 * Index a RULE statement
 	 */
 	indexRule(statement) {
+		console.verbose("[INDEX RULE]", statement);
 		const index = {type: "rule"};
 
 		// figure out where to put it
@@ -69,10 +124,7 @@ export default class Indexer {
 			index.body.push(body[i].body);
 		}
 
-		if(!this.index[symbol + "/" + arity]) {
-			this.index[symbol + "/" + arity] = [];
-		}
-		this.index[symbol + "/" + arity].push(index);
+		return {index: index, arity: arity, symbol: symbol};
  	}
 
 	/**
@@ -187,7 +239,7 @@ export default class Indexer {
 	 **/
 	*resolveFact(statement, bindings=[{}]) {
 		const symbol = statement[0].value;
-		const args = statement[1].body;
+		const args = statement[1] ? statement[1].body : [];
 		const arity = args.length;
 		console.verbose("[ResolveFact]", symbol, args);
 
@@ -206,7 +258,7 @@ export default class Indexer {
 					case "rule":
 						for(let b in bindings) {
 							// Unify the head of the statement against the bindings
-							let binding = this.unifyArray(statement[1].body, element.head, bindings[b]);
+							let binding = this.unifyArray(statement[1] ? statement[1].body : [], element.head, bindings[b]);
 							for(let result of this.resolveStatements(element.body.map(i => { return {head: "fact", body: i}; }), [binding])) {
 								yield result;
 							}

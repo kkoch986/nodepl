@@ -96,6 +96,28 @@ describe("[Indexer] [Unification] [Literals]", function() {
         expect(indexer.unify(termA, termB)).toEqual({});
     });
 
+    it("should unify 1 and 1 (mismatched by the parser)", () => {
+        const indexer = new Indexer();
+
+        const termA = {
+            head: "literal",
+            body: [{
+                type: "numeric-literal",
+                value: 1
+            }]
+        };
+
+        const termB = {
+            head: "literal",
+            body: [{
+                type: "numeric-literal",
+                value: "1"
+            }]
+        };
+
+        expect(indexer.unify(termA, termB)).toEqual({});
+    });
+
 
     it("should unify a and 'a'", () => {
         const indexer = new Indexer();
@@ -154,4 +176,45 @@ describe("[Indexer] [Unification] [Variables]", function() {
         };
         expect(indexer.unify(termA, termB)).toEqual({"A": {type: "variable_name", value: "B"}});
     });
+});
+
+
+/**
+ * Test unification that involves complex terms
+ */
+describe("[Indexer] [Unification] [Complex Terms]", function() {
+
+    it("should unify 2 simple complex terms", () => {
+        const indexer = new Indexer();
+
+        const termA = {
+            "type": "fact",
+            "body": [
+                {
+                    "type": "variable_name",
+                    "value": "A"
+                }
+            ]
+        };
+
+        const termB = {
+            "type": "fact",
+            "body": [
+                {
+                    "head": "literal",
+                    "body": [
+                        {
+                            "type": "id",
+                            "value": "b"
+                        }
+                    ]
+                }
+            ]
+        }
+        expect(indexer.unify(termA, termB)).toEqual({"A": {type: "id", value: "b"}});
+    });
+
+
+
+
 });

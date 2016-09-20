@@ -126,10 +126,11 @@ else if(args.query) {
 
 			// a hack to make sure literals print correctly.
 			let outputVal = "unknown";
-			if(val[key].head && val[key].head === "literal") {
-				outputVal = val[key].body[0].value;
+			let dVal = indexer.dereference(val[key], val);
+			if(dVal.head && dVal.head === "literal") {
+				outputVal = dVal.body[0].value;
 			} else {
-				outputVal = indexer.dereference(val[key], val).value;
+				outputVal = dVal.value;
 			}
 
 			// print the result

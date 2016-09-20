@@ -53,6 +53,42 @@ describe("[Source File] Parse", function() {
 	});
 
 	/**
+	 * Parse a single fact with no args and parens
+	 **/
+	it("accept basic fact no args and parens: a().", (done) => {
+		const parser = Parser.CreateWithLexer(Grammars.src);
+		const testString = "a().";
+
+		parser.on("accept", (tok) => {
+			expect(tok.length).toBe(1);
+			const body = tok[0];
+			expect(body).toEqual({
+				"head":"statement_list",
+				"body":[
+					{
+						"head":"statement",
+						"body":[
+							{
+								"head":"fact",
+								"body":[
+									{"type":"id","value":"a"}
+								]
+							}
+						]
+					}
+				]
+			});
+			done();
+		});
+		parser.on("error", (error) => {
+			fail(error);
+		});
+
+		parser.append(testString);
+		parser.end();
+	});
+
+	/**
 	 * Parse a single with a numeric argument.
 	 **/
 	it("accept basic fact with numeric literal a(12).", (done) => {

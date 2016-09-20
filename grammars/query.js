@@ -81,7 +81,10 @@ export default {
 			["fact"]
 		],
 		"fact": [
-			["id", "open_paren", "argument_list", "close_paren"]
+			["id", "open_paren", "argument_list", "close_paren"],
+			["id", "open_paren", "close_paren"],
+			["string-literal", "open_paren", "argument_list", "close_paren"],
+			["string-literal", "open_paren", "close_paren"]
 		],
 		"argument_list": [
 			["argument_list", "comma", "argument"],
@@ -89,7 +92,8 @@ export default {
 		],
 		"argument": [
 			["literal"],
-			["variable_name"]
+			["variable_name"],
+			["fact"]
 		],
 	},
 	"startSymbols": [ "statement" ]
