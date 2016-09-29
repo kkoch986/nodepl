@@ -11,6 +11,23 @@ const Parser = JSParse.Parser.LRParser;
 
 import Indexer from "./indexer";
 
+function toString(indexer, dVal) {
+	if(!dVal) return "";
+	let outputVal = "";
+	if(dVal.head && dVal.head === "literal") {
+		outputVal = dVal.body[0].value;
+	} else if(dVal.type === "fact") {
+		console.log(dVal);
+		let args = [];
+		// for(let i in dVal.)
+		outputVal = dVal.symbol + "("+args+")";
+	} else {
+		outputVal = dVal.value;
+	}
+
+	return outputVal;
+}
+
 /**
  * A list of the command line arguments formatted for
  * both commandLineArgs and commandLineUsage
@@ -127,14 +144,7 @@ else if(args.query) {
 			// a hack to make sure literals print correctly.
 			let outputVal = "unknown";
 			let dVal = indexer.dereference(val[key], val);
-			if(dVal.head && dVal.head === "literal") {
-				outputVal = dVal.body[0].value;
-			} else {
-				outputVal = dVal.value;
-			}
-
-			// print the result
-			console.log("\t" + key + " -> " + outputVal);
+			console.log("\t" + key + " -> " + toString(indexer, dVal));
 			printed = true;
 		}
 		if(!printed) {
