@@ -56,7 +56,7 @@ export default class Indexer {
 			for(let i in args) {
 				let arg = this.indexArgument(args[i]);
 				current.body.push(arg);
-				current.body.push({type: "fact", sybmol: ".", body: []});
+				current.body.push({type: "fact", symbol: ".", body: []});
 				current = current.body[1];
 			}
 

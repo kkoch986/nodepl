@@ -11,17 +11,64 @@ const Parser = JSParse.Parser.LRParser;
 
 import Indexer from "./indexer";
 
+
+/**
+ * Unfold a list.
+ * A list is made of of the term "."(X,Y).
+ * where X is the next element in the array and Y is the rest of the array
+ */
+function unfoldList(indexer, body) {
+	// if theres no body, return
+	if(!body || body.length === 0) {
+		return [];
+	} else if(body.length === 1) {
+		// if theres only one element it belongs in the list
+		// this means its not another nested list term
+		return [ toString(indexer, body[0]) ];
+	} else if(body.length === 2) {
+		// the first term is always just a term, so pass it through toString
+		let ret = [ toString(indexer, body[0]) ];
+
+		// if the second term in the body is ".", keep unfolding the list
+		// otherwise treat it as a term and add the string to the body.
+		if(body[1].type === "fact" && body[1].symbol === ".") {
+			ret = ret.concat(unfoldList(indexer, body[1].body));
+		} else {
+			ret.push(toString(indexer, body[1]));
+		}
+
+		return ret;
+	}
+
+	// if the body has more than 2 terms we dont know how to handle it
+	throw "Invalid list body size ("+body.length+")";
+}
+
+/**
+ * Convert a dereferenced object to a string.
+ */
 function toString(indexer, dVal) {
 	if(!dVal) return "";
 	let outputVal = "";
-	if(dVal.head && dVal.head === "literal") {
+
+	// literals
+	if(dVal.type === "literal" || (dVal.head && dVal.head === "literal")) {
 		outputVal = dVal.body[0].value;
-	} else if(dVal.type === "fact") {
-		console.log(dVal);
+	}
+	// Make sure to format Lists correctly
+	else if(dVal.type === "fact" && dVal.symbol === ".") {
+		outputVal = "["+unfoldList(indexer, dVal.body).join(",")+"]";
+	}
+	// terms
+	else if(dVal.type === "fact") {
 		let args = [];
-		// for(let i in dVal.)
+		for(let i in dVal.body) {
+			args.push(toString(indexer, dVal.body[i]));
+		}
 		outputVal = dVal.symbol + "("+args+")";
-	} else {
+	}
+	// who knows what...
+	else {
 		outputVal = dVal.value;
 	}
 
