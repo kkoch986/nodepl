@@ -177,3 +177,13 @@ describe("[Indexer] [Unification] [Variables]", function() {
         expect(indexer.unify(termA, termB)).toEqual({"A": {type: "variable_name", value: "B"}});
     });
 });
+
+
+/**
+ * Unifying terms
+ */
+// describe("[Indexer] [Unification] [Terms]", function(){
+//     it("should bind some terms to a variable", () => {
+//
+//     })
+// });

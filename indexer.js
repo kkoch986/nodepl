@@ -16,7 +16,7 @@ export default class Indexer {
 	/**
 	 * Index the given statement
 	 **/
-	indexStatement(statement) {
+	indexStatement(statement, dryRun = false) {
 		let x = null;
 		switch(statement.head) {
 			case "fact":
@@ -27,6 +27,10 @@ export default class Indexer {
 				break ;
 			default:
 				throw "Unknown statement type: " + statement.head;
+		}
+
+		if(dryRun) {
+			return x;
 		}
 
 		if(x) {
@@ -190,7 +194,13 @@ export default class Indexer {
 	 **/
 	*resolveStatement(statement, bindings=[{}]) {
 		console.verbose("[ResolveStatement]", statement);
-		switch(statement.head) {
+
+		// TODO: fix this hack which is needed because of inconsistant object naming.
+		// Might be night to load all of the symbols into classes so we can enforce
+		// some kind of structure on them.
+		if(statement.head && !statement.type) statement.type = statement.head;
+
+		switch(statement.type) {
 			case "statement":
 				for(let r of this.resolveStatements(statement.body, bindings)) {
 					yield r;
@@ -202,7 +212,7 @@ export default class Indexer {
 				}
 				break ;
 			default:
-				throw "Unknown statement type: " + statement.head;
+				throw "Unknown statement type: " + statement.type;
 		}
 	}
 
@@ -320,22 +330,29 @@ export default class Indexer {
 	 **/
 	unify(base,query,b={}) {
 		let bindings = Object.assign({}, b);
-		console.verbose("[UNIFY]", base, query, bindings);
+		console.verbose("[UNIFY]", JSON.stringify(base), JSON.stringify(query), bindings);
 
 		// Dereference the terms in case they are bound variables
 		base = this.dereference(base, bindings);
 		query = this.dereference(query, bindings);
 
-		console.verbose("[UNIFY-DEREF]", base, query, bindings);
+		// TODO: fix this hack which is needed because of inconsistant object naming.
+		// Might be night to load all of the symbols into classes so we can enforce
+		// some kind of structure on them.
+		if(base.head && !base.type) base.type = base.head;
+		if(query.head && !query.type) query.type = query.head;
+
+		console.verbose("[UNIFY-DEREF]", JSON.stringify(base), JSON.stringify(query), bindings);
 
 		// If term1 and term2 are constants, then term1 and term2 unify if and only if they are the same atom, or the same number.
-		if(base.head && base.head === "literal" && query.head && query.head === "literal") {
+		if(base.type && base.type === "literal" && query.type && query.type === "literal") {
 			if(base.body[0].value === query.body[0].value) {
 				return bindings;
 			} else {
 				return false;
 			}
 		}
+
 
 		// TODO: make sure this works if base and query are both variables.
 		if(base.type && base.type === "variable_name" && query.type && query.type === "variable_name") {
@@ -379,6 +396,18 @@ export default class Indexer {
 		//  	(For example, it is not possible to instantiate
 		// 		variable X to mia when unifying one pair of arguments,
 		// 		and to instantiate X to vincent when unifying another pair of arguments .)
+		if(query.type === "fact" || base.type === "fact") {
+			// TODO: could maybe support hilog here by unifying the symbols instead of
+			// just comparing them, would need to make sure the parser could support
+			// variables in the functor position
+			if(query.type !== base.type || query.symbol !== base.symbol) {
+				return false;
+			}
+			console.log("unify facts", query, base);
+			return this.unifyArray(base.body, query.body, bindings);
+		}
+
+
 		for(let i in query) {
 			let qTerm = query[i];
 			let bTerm = base[i];

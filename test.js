@@ -13,8 +13,35 @@ indexer.deserialize(index);
 // 	[ { type: 'variable_name', value: 'A' }, { type: 'id', value: 'b' } ]
 // ));
 
-console.log(indexer.unify(
-	[ { type: 'id', value: 'a' }, { type: 'id', value: 'b' } ],
-	[ { type: 'variable_name', value: 'A' }, { type: 'id', value: 'b' } ],
-	{ A: { type: 'variable_name', value: 'A' } }
-))
+console.log((new Indexer()).unify(
+	[
+		{
+			"body": [
+				{
+					"body":[
+						{
+							"body":[
+								{"type":"id","value":"b"}
+							],
+							"type":"literal"
+						}
+					],
+					"type":"fact",
+					"symbol":"a"
+				}
+			],
+			"type":"fact",
+			"symbol":"d"
+		}
+	],
+	[
+		{
+			"type":"fact",
+			"symbol":"d",
+			"body":[
+				{"type":"variable_name","value":"A"}
+			]
+		}
+	],
+	{}
+));

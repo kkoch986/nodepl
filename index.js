@@ -239,15 +239,19 @@ else if(args.query) {
 		function next() {
 			// TODO: allow partial statements here
 			rd.question('> ', (answer) => {
-				parser.append(answer);
-				parser.end();
+				if(!answer.trim()) {
+					next();
+				} else {
+					parser.append(answer);
+					parser.end();
+				}
 			});
 		}
 		next();
 
 		parser.on("statement", (statement) => {
-			console.log("\nResults: ");
-			printAllResults(indexer.resolveStatements(statement), rd, () => {
+			console.log("\nResults: ", statement);
+			printAllResults(indexer.resolveStatements([statement[0]]), rd, () => {
 				console.log("Done.");
 				next();
 			});
