@@ -36,6 +36,16 @@ export default {
 			"match":"\\)",
 			"excludeFromProduction":true
 		},
+		"open_square": {
+			"terminal":true,
+			"match":"\\[",
+			"excludeFromProduction":true
+		},
+		"close_square": {
+			"terminal":true,
+			"match":"\\]",
+			"excludeFromProduction":true
+		},
 		"comma": {
 			"terminal":true,
 			"match":",",
@@ -59,8 +69,7 @@ export default {
 			"mergeRecursive": true
 		},
 		"literal":{
-			"terminal":false,
-			"mergeIntoParent":true
+			"terminal":false
 		},
 		"concatenation":{
 			"terminal": false,
@@ -86,6 +95,10 @@ export default {
 			["string-literal", "open_paren", "argument_list", "close_paren"],
 			["string-literal", "open_paren", "close_paren"]
 		],
+		"list": [
+			["open_square" ,"close_square"],
+			["open_square", "argument_list", "close_square"]
+		],
 		"argument_list": [
 			["argument_list", "comma", "argument"],
 			["argument"]
@@ -93,8 +106,9 @@ export default {
 		"argument": [
 			["literal"],
 			["variable_name"],
-			["fact"]
-		],
+			["fact"],
+			["list"]
+		]
 	},
 	"startSymbols": [ "statement" ]
 };

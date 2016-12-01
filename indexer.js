@@ -282,12 +282,28 @@ export default class Indexer {
 	}
 
 	/**
+	 * Convert an array of terms into a "." predicate for use as the body of a list.
+	 */
+	listBodyToDot(body, binding={}) {
+		console.log("[LIST TO DOT]", body);
+		return {
+			type: "fact",
+			symbol: ".",
+			body: body.length ? [
+				this.dereference(body[0], binding),
+				this.listBodyToDot(body.splice(1), binding)
+			] : []
+		}
+	}
+
+	/**
 	 * Take the given thing and bindings and if its a variable_name dereference it
 	 **/
 	dereference(x, binding) {
 		if(x.type === "variable_name" && binding[x.value]) {
 			console.verbose("[Dereference]", x, binding);
 			const currentBinding = binding[x.value];
+
 			// if its a variable, dereference that. unless its this.
 			if(currentBinding.type === "variable_name") {
 				if(currentBinding.value === x.value) {
@@ -300,6 +316,39 @@ export default class Indexer {
 			}
 		}
 
+		if(x.head && !x.type) x.type = x.head;
+
+		// unpack lists into "." predicates
+		if(x.head === "list") {
+			x = {
+				type: "fact",
+				symbol: ".",
+				body: [
+					this.listBodyToDot(x.body[0].body, binding),
+					{
+						type: "fact",
+						symbol: ".",
+						body: []
+					}
+				]
+			}
+			console.log("X", JSON.stringify(x));
+		}
+
+		if(x.head === "fact" || x.type === "fact") {
+			// make sure if there is a head === fact and no type, that we extract the
+			// first argument of the body and use that as the symbol
+			if(!x.symbol) {
+				x.symbol = x.body[0].value;
+				x.body = x.body.splice(1);
+			}
+
+			// make sure to unfold argument_lists into the body
+			if(x.body[0] && x.body[0].head === "argument_list") {
+				x.body = x.body[0].body;
+			}
+		}
+
 		// unwrap literals
 		if(x.type === "string-literal" || x.type === "id" || x.type === "numeric-literal") {
 			x = {head: "literal", body:[x]};
@@ -308,13 +357,18 @@ export default class Indexer {
 		// make sure numeric literals are numeric
 		// this helps with comparisons later i.e.
 		// 1 !== "1" but "a" === a
-		if(x.head === "literal" && x.body[0].type === "numeric-literal") {
+		if(x.head === "literal" && x.body[0] && x.body[0].type === "numeric-literal") {
 			x.body[0].value = parseFloat(x.body[0].value);
 		}
 
 		return x;
 	}
 
+	/**
+	 * Unify an array of terms.
+	 * This will unify the terms in the array one for one, passing the updated
+	 * bindings to each successive call.
+	 */
 	unifyArray(bases, queries, binding={}){
 		let currentBinding = binding;
 		for(let i in bases) {
@@ -333,14 +387,16 @@ export default class Indexer {
 		console.verbose("[UNIFY]", JSON.stringify(base), JSON.stringify(query), bindings);
 
 		// Dereference the terms in case they are bound variables
+		// Dereference also does some slightly hacky work to make sure similar terms
+		//  from different sources are in the same format.
 		base = this.dereference(base, bindings);
 		query = this.dereference(query, bindings);
 
 		// TODO: fix this hack which is needed because of inconsistant object naming.
 		// Might be night to load all of the symbols into classes so we can enforce
 		// some kind of structure on them.
-		if(base.head && !base.type) base.type = base.head;
-		if(query.head && !query.type) query.type = query.head;
+		// if(base.head && !base.type) base.type = base.head;
+		// if(query.head && !query.type) query.type = query.head;
 
 		console.verbose("[UNIFY-DEREF]", JSON.stringify(base), JSON.stringify(query), bindings);
 
@@ -403,7 +459,6 @@ export default class Indexer {
 			if(query.type !== base.type || query.symbol !== base.symbol) {
 				return false;
 			}
-			console.log("unify facts", query, base);
 			return this.unifyArray(base.body, query.body, bindings);
 		}
 
