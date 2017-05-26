@@ -24,7 +24,7 @@ Being fast would be a nice bonus...
 - [ ] handle syntax errors in query mode without crashing
 - [ ] allow partial query entering in query mode.
 - [ ] lists / syntactic sugar hooks
-- [ ] clean up code from before my latest major refactoring
+- [x] clean up code from before my latest major refactoring
 - [ ] actual documentation
 - [ ] handle queries in the source files (already enabled in the parser)
 - [ ] unit testing
