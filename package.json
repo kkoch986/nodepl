@@ -27,7 +27,8 @@
       "react"
     ],
     "plugins": [
-      "transform-regenerator"
+      "transform-regenerator",
+	  "transform-class-properties"
     ]
   },
   "devDependencies": {

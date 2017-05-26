@@ -15,6 +15,7 @@ friend(charlie, dan).
 a(alice).
 b(bob).
 fof(A,C) :- friend(A,B), friend(B,C).
+fof(A,C) :- friend(A,B), friend(B,C).
 fofr(A,C) :- friend(A,B), friend(B,C).
 fofr(A,C) :- friend(A,B), friend(A,C).
 
@@ -24,4 +25,5 @@ rdf(1,"Names",ken).
 
 "."(A,B).
 "."().
-"="(A,A).
+
+A = A.

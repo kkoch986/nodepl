@@ -9,71 +9,10 @@ import Grammars from "./grammar";
 import JSParse from "js-parse";
 const Parser = JSParse.Parser.LRParser;
 
-import Indexer from "./indexer";
-
-
-/**
- * Unfold a list.
- * A list is made of of the term "."(X,Y).
- * where X is the next element in the array and Y is the rest of the array
- */
-function unfoldList(indexer, body) {
-	// if theres no body, return
-	if(!body || body.length === 0) {
-		return [];
-	} else if(body.length === 1) {
-		// if theres only one element it belongs in the list
-		// this means its not another nested list term
-		return [ toString(indexer, body[0]) ];
-	} else if(body.length === 2) {
-		// the first term is always just a term, so pass it through toString
-		let ret = [ toString(indexer, body[0]) ];
-
-		// if the second term in the body is ".", keep unfolding the list
-		// otherwise treat it as a term and add the string to the body.
-		if(body[1].type === "fact" && body[1].symbol === ".") {
-			ret = ret.concat(unfoldList(indexer, body[1].body));
-		} else {
-			ret.push(toString(indexer, body[1]));
-		}
-
-		return ret;
-	}
-
-	// if the body has more than 2 terms we dont know how to handle it
-	throw "Invalid list body size ("+body.length+")";
-}
-
-/**
- * Convert a dereferenced object to a string.
- */
-function toString(indexer, dVal) {
-	if(!dVal) return "";
-	let outputVal = "";
-
-	// literals
-	if(dVal.type === "literal" || (dVal.head && dVal.head === "literal")) {
-		outputVal = dVal.body[0].value;
-	}
-	// Make sure to format Lists correctly
-	else if(dVal.type === "fact" && dVal.symbol === ".") {
-		outputVal = "["+unfoldList(indexer, dVal.body).join(",")+"]";
-	}
-	// terms
-	else if(dVal.type === "fact") {
-		let args = [];
-		for(let i in dVal.body) {
-			args.push(toString(indexer, dVal.body[i]));
-		}
-		outputVal = dVal.symbol + "("+args+")";
-	}
-	// who knows what...
-	else {
-		outputVal = dVal.value;
-	}
-
-	return outputVal;
-}
+import AST from "./interpreter";
+import {Deserialize} from "./ast";
+import {Default as Indexer} from "./indexing";
+import {Default as Engine} from "./engine";
 
 /**
  * A list of the command line arguments formatted for
@@ -143,7 +82,9 @@ if(args.help === true) {
 else if(args.src) {
 	// Create the parser and indexer
 	const parser = Parser.CreateWithLexer(Grammars.src);
-	const indexer = new Indexer();
+	const outputFileName = (args.output || "./output/index.json");
+	const tempFileName = outputFileName + ".raw";
+	const outputFP = fs.openSync(tempFileName, "w");
 
 	parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
 	parser.on("production", (tok) => console.verbose("PROD", tok));
@@ -151,8 +92,12 @@ else if(args.src) {
 	parser.on("error", (error) => {throw error.message});
 
 	parser.on("statement", (statement) => {
-		indexer.indexStatement(statement[0]);
-	})
+		const ast = new AST(statement).get();
+		for(let i in ast) {
+			// TODO: catch errors here.
+			fs.write(outputFP, JSON.stringify(ast[i]) + "\n", () => {});
+		}
+	});
 
 	const rd = readline.createInterface({
 		input: fs.createReadStream(args.src),
@@ -165,8 +110,17 @@ else if(args.src) {
 
 	rd.on("close", () => {
 		parser.end();
-		indexer.serialize(args.output || "index.json");
-	})
+		// TODO: catch errors here
+		fs.close(outputFP, () => {});
+
+		// Run the indexer now.
+		(new Indexer()).indexFile(tempFileName, outputFileName).then(() => {
+			// delete the temp file.
+			fs.unlink(tempFileName, () => {
+				console.log("Done.");
+			});
+		});
+	});
 }
 /**
  * Query mode
@@ -176,55 +130,11 @@ else if(args.query) {
 	const parser = Parser.CreateWithLexer(Grammars.query);
 	const indexer = new Indexer();
 
-	// a function for printing the results
-	function printNext(results) {
-		let val = results.next().value;
-		if(!val) return false;
-
-
-		let printed = false;
-		for(let key in val) {
-
-			// Dont print any variables that start with "_"
-			if(key[0] === "_") continue ;
-
-			// a hack to make sure literals print correctly.
-			let outputVal = "unknown";
-			let dVal = indexer.dereference(val[key], val);
-			console.log("\t" + key + " -> " + toString(indexer, dVal));
-			printed = true;
-		}
-		if(!printed) {
-			console.log("Yes.");
-		}
-		console.log();
-		return true;
-	}
-
-	// recursively loop over the results,
-	// print one and if the user enters a ; then print the next
-	// if we run out or the user enters anything else, break out of this
-	// and fire the callback.
-	// this works with results as the result of a generator, so it is
-	// totally lazy when it comes to evaluation. This means we dont have
-	// to traverse the entire results tree to get the first result.
-	function printAllResults(results, rd, callback) {
-		if(printNext(results)) {
-			rd.question('; ', (answer) => {
-				if(answer === ";") {
-					printAllResults(results, rd, callback);
-				} else {
-					callback();
-				}
-			});
-		} else {
-			callback();
-		}
-	}
-
 	// Load the indexer
 	console.verbose("[LOAD INDEXER]", args.query);
-	indexer.deserializeFromFile(args.query).then(() => {
+	indexer.initializeFromFile(args.query).then(() => {
+
+		const engine = new Engine(indexer);
 
 		parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
 		parser.on("production", (tok) => console.verbose("PROD", tok));
@@ -250,11 +160,40 @@ else if(args.query) {
 		next();
 
 		parser.on("statement", (statement) => {
-			console.log("\nResults: ", statement);
-			printAllResults(indexer.resolveStatements([statement[0]]), rd, () => {
-				console.log("Done.");
-				next();
-			});
+			// we can assume that the AST for the query grammar returns a Concatenation
+			// NOTE: if that assumption ever changes we'll need to update this.
+			let results = engine.resolveStatements(new AST(statement).get()[0].getFacts());
+			let val = results.next().value;
+			if(!val) {
+				console.log("No.\n");
+			} else {
+				while(val) {
+					// Take a binding an print that sucker out.
+					// the keys of the binding should correspond to the variable names.
+					// we can skip anything that starts with an _ since thats a hidden variable.
+					let count = 0;
+					for(let v in val) {
+						if(v[0] === "_") continue ;
+						count++;
+						console.log(v + " --> " + engine.dereference(val[v], val).pretty());
+					}
+
+					// if there are no bindings, just print out 'Yes.' to indicate
+					// that the query is successful and true, but there are no
+					// bindings to display.
+					if(count === 0) {
+						console.log("Yes.");
+					}
+					console.log();
+
+					// TODO: let them hit a key or something to step through
+					//       the results. Since things are async, we can prevent
+					//       infinite loops this way, no more processing will occur
+					//       until results.next() is called.
+					val = results.next().value;
+				}
+			}
+			next();
 		});
 
 	}).catch((e) => {

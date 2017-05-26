@@ -1,7 +1,4 @@
-/**
- * The grammar for parsing valid programs and producing an AST
- **/
-export default {
+{
 	"symbols":{
 		"whitespace": {
 			"terminal":true,
@@ -13,23 +10,22 @@ export default {
 			"match":"[0-9]*\\.?[0-9]+",
 			"matchCaseInsensitive":true
 		},
-		"string-literal": {
-			"terminal":true,
-			"match":"\"((?:[^\\\\\"]|\\\\.)*)\"",
-			"matchOnly": 1
+		"infix_operator": {
+			"terminal": true,
+			"match": "[=]"
 		},
 		"id": {
 			"terminal":true,
 			"match":"[a-z][a-zA-Z0-9_]*"
 		},
+		"string-literal": {
+			"terminal":true,
+			"match":"\"((?:[^\\\\\"]|\\\\.)*)\"",
+			"matchOnly": 1
+		},
 		"variable_name": {
 			"terminal":true,
 			"match":"[A-Z_][a-zA-Z0-9_]*"
-		},
-		"implies": {
-			"terminal":true,
-			"match":":-",
-			"excludeFromProduction":true
 		},
 		"open_paren": {
 			"terminal":true,
@@ -73,12 +69,12 @@ export default {
 			"terminal": false,
 			"mergeRecursive": true
 		},
-		"fact_list": {
-			"terminal": false,
-			"mergeRecursive": true
-		},
 		"literal":{
 			"terminal":false
+		},
+		"concatenation":{
+			"terminal": false,
+			"mergeRecursive":true
 		}
 	},
 	"productions": {
@@ -87,13 +83,14 @@ export default {
 			[ "string-literal" ],
 			[ "id" ]
 		],
-		"statement_list": [
-			["statement_list", "statement"],
-			["statement"]
-		],
 		"statement": [
-			["fact", "dot"],
-			["rule", "dot"]
+			["concatenation", "dot"]
+		],
+		"concatenation":[
+			["concatenation", "comma", "fact"],
+			["concatenation", "comma", "infix"],
+			["fact"],
+			["infix"]
 		],
 		"fact": [
 			["id", "open_paren", "argument_list", "close_paren"],
@@ -101,12 +98,23 @@ export default {
 			["string-literal", "open_paren", "argument_list", "close_paren"],
 			["string-literal", "open_paren", "close_paren"]
 		],
-		"rule":[
-			["fact", "implies", "fact_list"]
-		],
-		"fact_list": [
-			["fact_list", "comma", "fact"],
-			["fact"]
+		"infix": [
+			["variable_name", "infix_operator", "variable_name"],
+			["variable_name", "infix_operator", "literal"],
+			["variable_name", "infix_operator", "fact"],
+			["variable_name", "infix_operator", "list"],
+			["literal", "infix_operator", "variable_name"],
+			["literal", "infix_operator", "literal"],
+			["literal", "infix_operator", "fact"],
+			["literal", "infix_operator", "list"],
+			["fact", "infix_operator", "variable_name"],
+			["fact", "infix_operator", "literal"],
+			["fact", "infix_operator", "fact"],
+			["fact", "infix_operator", "list"],
+			["list", "infix_operator", "variable_name"],
+			["list", "infix_operator", "literal"],
+			["list", "infix_operator", "fact"],
+			["list", "infix_operator", "list"]
 		],
 		"list": [
 			["open_square" ,"close_square"],
@@ -123,5 +131,5 @@ export default {
 			["list"]
 		]
 	},
-	"startSymbols": [ "statement_list" ]
-};
+	"startSymbols": [ "statement" ]
+}
