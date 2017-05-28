@@ -11,7 +11,7 @@ export default class ASTBase {
 
 	isPrimitive() { return false; }
 
-	pretty() {
+	pretty(engine=null,binding={}) {
 		return JSON.stringify(this);
 	}
 }

@@ -21,6 +21,9 @@ Being fast would be a nice bonus...
 
 ## TODO:
 - [ ] better document where hooks are to add standard predicates with special handling.
+    - [ ] fail predicate
+    - [ ] ! (cut)
+    - [ ] number math
 - [x] unify complex terms (engine.js:203)
 - [ ] handle syntax errors in query mode without crashing
 - [ ] allow partial query entering in query mode.
@@ -34,3 +37,4 @@ Being fast would be a nice bonus...
 - [ ] a more robust logging set up (log4js?)
     - partially complete, using `debug` now (`npm install debug`)
 - [ ] engine / compiler directives (`%-` or something)
+- [ ] profile everything to find slow spots

@@ -34,7 +34,7 @@ export default class ASTFact extends ASTBase {
 		return this.body;
 	}
 
-	pretty() {
+	pretty(engine=null,binding={}) {
 		let head = this.getHead();
 		let body = this.getBody();
 
@@ -49,7 +49,7 @@ export default class ASTFact extends ASTBase {
 			let currentFact = this;
 			while(currentFact) {
 				if(currentFact.body.length === 0) break ;
-				output.push(currentFact.body[0].pretty());
+				output.push(currentFact.body[0].pretty(engine,binding));
 				currentFact = currentFact.body[1];
 			}
 
@@ -57,6 +57,6 @@ export default class ASTFact extends ASTBase {
 		}
 
 		// normal facts
-		return head.getValue() + "(" + body.map(a => a.pretty()).join(",") + ")";
+		return head.getValue() + "(" + body.map(a => a.pretty(engine,binding)).join(",") + ")";
 	}
 }

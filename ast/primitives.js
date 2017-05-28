@@ -15,7 +15,7 @@ class ASTString extends ASTBase {
 		return this.value;
 	}
 
-	pretty() {
+	pretty(engine=null,binding={}) {
 		return "\"" + this.getValue() + "\"";
 	}
 }
@@ -31,7 +31,7 @@ class ASTNumber extends ASTString  {
 		if(isNaN(this.value)) throw "Unexpected number: " + value;
 	}
 
-	pretty() {
+	pretty(engine=null,binding={}) {
 		return this.getValue();
 	}
 }
@@ -48,7 +48,13 @@ class ASTVariable extends ASTString  {
 		this.value = value;
 	}
 
-	pretty() {
+	pretty(engine=null, binding={}) {
+		if(engine) {
+			let deref = engine.dereference(this, binding);
+			if(deref !== this) {
+				return deref.pretty(engine, binding);
+			}
+		}
 		return this.getValue();
 	}
 }

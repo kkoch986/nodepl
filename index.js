@@ -57,6 +57,51 @@ const options = [
 	}
 ];
 
+/**
+ * A function for printing results.
+ * pass in the generator object and the callback
+ * to return to the prompt.
+ **/
+function printNext(results, engine, rd, next) {
+	let val = results.next().value;
+	if(!val) {
+		console.log("No.\n");
+		return next();
+	} else {
+		// Take a binding an print that sucker out.
+		// the keys of the binding should correspond to the variable names.
+		// we can skip anything that starts with an _ since thats a hidden variable.
+		let count = 0;
+		for(let v in val) {
+			if(v[0] === "_") continue ;
+			count++;
+			console.log(v + " --> " + engine.dereference(val[v], val).pretty(engine, val) + ".");
+		}
+
+		// if there are no bindings, just print out 'Yes.' to indicate
+		// that the query is successful and true, but there are no
+		// bindings to display.
+		if(count === 0) {
+			console.log("Yes.");
+			console.log();
+			return next();
+		}
+		console.log();
+
+		// let them hit a key or something to step through
+		//  the results. Since things are async, we can prevent some
+		//  infinite loops this way since no more processing will occur
+		//  until results.next() is called.
+		rd.question('; ', answer => {
+			if(answer === ".") {
+				return next();
+			}
+
+			printNext(results, engine, rd, next);
+		});
+	}
+}
+
 // parse the args and figure out what to do
 const args = commandLineArgs(options);
 console.verbose = (...stuff) => args.verbose ? console.log(...stuff) : false;
@@ -162,40 +207,8 @@ else if(args.query) {
 		next();
 
 		parser.on("statement", (statement) => {
-			// we can assume that the AST for the query grammar returns a Concatenation
-			// NOTE: if that assumption ever changes we'll need to update this.
 			let results = engine.resolveStatements(new AST(statement).get()[0].getFacts());
-			let val = results.next().value;
-			if(!val) {
-				console.log("No.\n");
-			} else {
-				while(val) {
-					// Take a binding an print that sucker out.
-					// the keys of the binding should correspond to the variable names.
-					// we can skip anything that starts with an _ since thats a hidden variable.
-					let count = 0;
-					for(let v in val) {
-						if(v[0] === "_") continue ;
-						count++;
-						console.log(v + " --> " + engine.dereference(val[v], val).pretty() + ".");
-					}
-
-					// if there are no bindings, just print out 'Yes.' to indicate
-					// that the query is successful and true, but there are no
-					// bindings to display.
-					if(count === 0) {
-						console.log("Yes.");
-					}
-					console.log();
-
-					// TODO: let them hit a key or something to step through
-					//       the results. Since things are async, we can prevent
-					//       infinite loops this way, no more processing will occur
-					//       until results.next() is called.
-					val = results.next().value;
-				}
-			}
-			next();
+			printNext(results, engine, rd, next);
 		});
 
 	}).catch((e) => {

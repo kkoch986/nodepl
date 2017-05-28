@@ -1,12 +1,12 @@
 
 all_notes(ChordName, [ENote, ANote, DNote, GNote, BNote, HighENote]) :-
     chord(ChordName, _, _E, _A, _D, _G, _B, _e),
-    note(0, _E, ENote),
-    note(1, _A, ANote),
-    note(2, _D, DNote),
-    note(3, _G, GNote),
-    note(4, _B, BNote),
-    note(5, _e, HighENote).
+    note(5, _E, ENote),
+    note(4, _A, ANote),
+    note(3, _D, DNote),
+    note(2, _G, GNote),
+    note(1, _B, BNote),
+    note(0, _e, HighENote).
 
 note(0,"x","x").
 note(0,"0","E").
