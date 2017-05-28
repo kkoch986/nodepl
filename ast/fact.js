@@ -35,6 +35,28 @@ export default class ASTFact extends ASTBase {
 	}
 
 	pretty() {
-		return this.getHead().getValue() + "(" + this.getBody().map(a => a.pretty()).join(",") + ").";
+		let head = this.getHead();
+		let body = this.getBody();
+
+		// LISTS
+		// if this is a ./2 or ./0 print it as a list
+		if(head.getValue() === "|" && (body.length === 0 || body.length === 2)) {
+			if(body.length === 0) {
+				return "[]";
+			}
+
+			let output = [];
+			let currentFact = this;
+			while(currentFact) {
+				if(currentFact.body.length === 0) break ;
+				output.push(currentFact.body[0].pretty());
+				currentFact = currentFact.body[1];
+			}
+
+			return "[" + output.join(",") + "]";
+		}
+
+		// normal facts
+		return head.getValue() + "(" + body.map(a => a.pretty()).join(",") + ")";
 	}
 }

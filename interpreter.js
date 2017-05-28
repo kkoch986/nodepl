@@ -1,4 +1,5 @@
-
+const createDebug = require('debug');
+const Debug = createDebug("interpreter");
 import {ASTVariable, ASTFact, ASTNumber, ASTString, ASTRule, ASTConcatenation} from "./ast";
 
 /**
@@ -50,10 +51,13 @@ export default class Interpreter {
 		}
 
 		// the head of a fact is a primitive
-		return new ASTFact(
+		const ret = new ASTFact(
 			this.consumePrimitive(parse[0]),
 			parse.length === 2 ? this.consumeArgumentList(parse[1]) : []
 		);
+
+		Debug("[consumeFact] %j", ret);
+		return ret;
 	}
 
 	/**
@@ -106,13 +110,107 @@ export default class Interpreter {
 	consumeArgument(parse) {
 		if(parse.type && parse.type.replace(/^Q\./, "") === "variable_name") {
 			return this.consumePrimitive(parse);
-		} else if(parse.head === "literal") {
+		} else if(parse.head.replace(/^Q\./,"") === "literal") {
 			return this.consumePrimitive(parse.body[0]);
-		} else if(parse.head === "fact") {
+		} else if(parse.head.replace(/^Q\./,"") === "fact") {
 			return this.consumeFact(parse.body);
+		} else if(parse.head.replace(/^Q\./,"") === "list") {
+			return this.consumeList(parse.body[0]);
 		}
 
 		throw "Unknown argument: " + JSON.stringify(parse);
+	}
+
+	/**
+	 * Consume a LIST.
+	 * Lists are simply a syntactic sugar for the '.'/2 and '.'/0 predicate.
+	 * A list like [1,2,3] is stored as `.(1,.(2, .(3, .())))`
+	 * an arugment_list parse is what should be passed into this.
+	 **/
+	consumeList(list) {
+		// if we got a CONs thats just syntactic sugar
+		// we would convert A | L into |(A,L).
+		// "|"(A,L). should be defined in the standard predicates
+		// cons is supported in 2 major uses:
+		//    [X|L] - where each side is jsut a single entity.
+		//    [a,b,c|L] - where there are multiple elements on one or both sides
+		// in the case where there is just a single element.
+		// For 2 single elements, we will create an operation like |(X,L) which
+		// makes it effectively a Hd/Tl operation.
+		// when either side is a list we should start by creating the list out of
+		// that. So [1,2,3|X] should result in |(1,|(2,|(3,X))) so it would unify
+		// with [1,2,3,4,5] as X = [4,5].
+		// similarly the tail part can be an array so [X|4,5,6] should result in
+		// |(X,|(4, |(5, |(6, |())))). They can be combined like [1,2,3|4,5,6]
+		// which isnt very meaningful as it would just result in the list
+		// [1,2,3,4,5,6]
+		// TODO: solid unit test coverage of this.
+		if(list.head && list.head === "cons") {
+			let partA = list.body[0].body;
+			let partB = list.body[2].body;
+			// build the second half first then we can just glue it on
+			// to the end of the partA chain.
+			let partBArray = [];
+			let partBOriginal = partB.length === 1 ?
+				this.consumeArgument(partB[0])
+				: new ASTFact(new ASTString("|"), partBArray);
+			if(partB.length > 1) {
+				for(let i in partB) {
+					partBArray[0] = this.consumeArgument(partB[i]);
+					let newArray = [];
+					let newFact = new ASTFact(new ASTString("|"), newArray);
+					partBArray[1] = newFact;
+					partBArray = newArray;
+				}
+			}
+
+			let currentArray = [];
+			let original = new ASTFact(new ASTString("|"), currentArray);
+
+			if(partA.length > 1) {
+				// load the first part of the cons into a list
+				for(let i in partA) {
+					currentArray[0] = this.consumeArgument(partA[i]);
+					if(parseInt(i) === partA.length - 1) {
+						currentArray[1] = partBOriginal;
+					} else {
+						let newArray = [];
+						let newFact = new ASTFact(new ASTString("|"), newArray);
+						currentArray[1] = newFact;
+						currentArray = newArray;
+					}
+				}
+			} else {
+				currentArray[0] = this.consumeArgument(partA[0]);
+				currentArray[1] = partBOriginal;
+			}
+
+			return original;
+		}
+
+		// if its not cons, it should be an argument list which will be
+		// stacked
+		if(list.head.replace(/^Q\./, "") !== "argument_list") {
+			throw "consumeList expects an argument list as the parameter, got: " + JSON.stringify(list);
+		}
+
+		let currentBody = [];
+		let outside = new ASTFact(new ASTString("|"), currentBody);
+		let currentFact = outside;
+		let newBody = null;
+		let newFact = null;
+
+		for(let i in list.body) {
+			let arg = this.consumeArgument(list.body[i]);
+			currentBody.push(arg);
+			newBody = [];
+			newFact = new ASTFact(new ASTString("|"), newBody);
+			currentBody.push(newFact);
+			currentBody = newBody;
+			currentFact = newFact;
+		}
+
+		return outside;
 	}
 
 	/**

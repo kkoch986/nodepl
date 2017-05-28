@@ -55,19 +55,19 @@
 			["Q.variable_name", "Q.infix_operator", "Q.variable_name"],
 			["Q.variable_name", "Q.infix_operator", "literal"],
 			["Q.variable_name", "Q.infix_operator", "fact"],
-			["Q.variable_name", "Q.infix_operator", "list"],
+			["Q.variable_name", "Q.infix_operator", "Q.list"],
 			["literal", "Q.infix_operator", "Q.variable_name"],
 			["literal", "Q.infix_operator", "literal"],
 			["literal", "Q.infix_operator", "fact"],
-			["literal", "Q.infix_operator", "list"],
+			["literal", "Q.infix_operator", "Q.list"],
 			["fact", "Q.infix_operator", "Q.variable_name"],
 			["fact", "Q.infix_operator", "literal"],
 			["fact", "Q.infix_operator", "fact"],
-			["fact", "Q.infix_operator", "list"],
-			["list", "Q.infix_operator", "Q.variable_name"],
-			["list", "Q.infix_operator", "literal"],
-			["list", "Q.infix_operator", "fact"],
-			["list", "Q.infix_operator", "list"]
+			["fact", "Q.infix_operator", "Q.list"],
+			["Q.list", "Q.infix_operator", "Q.variable_name"],
+			["Q.list", "Q.infix_operator", "literal"],
+			["Q.list", "Q.infix_operator", "fact"],
+			["Q.list", "Q.infix_operator", "Q.list"]
 		],
 		"fact": [
 			["Q.id", "Q.open_paren", "argument_list", "Q.close_paren"],
@@ -82,10 +82,6 @@
 			["fact_list", "Q.comma", "fact"],
 			["fact"]
 		],
-		"list": [
-			["Q.open_square" ,"Q.close_square"],
-			["Q.open_square", "argument_list", "Q.close_square"]
-		],
 		"argument_list": [
 			["argument_list", "Q.comma", "argument"],
 			["argument"]
@@ -94,7 +90,7 @@
 			["literal"],
 			["Q.variable_name"],
 			["fact"],
-			["list"]
+			["Q.list"]
 		]
 	},
 	"startSymbols": [ "statement_list" ]

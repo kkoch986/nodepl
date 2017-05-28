@@ -1,3 +1,9 @@
+const createDebug = require('debug');
+const Debug = createDebug("resolver");
+
+// TODO: use this to profile resolution
+const Profile = createDebug("profile:resolver");
+
 /**
  * The class where most of the magic happens.
  **/
@@ -13,7 +19,7 @@ export default class Default {
 	 * bindings as they are discovered.
 	 **/
 	*resolveStatements(statements, bindings = [{}]) {
-		console.verbose("[ResolveStatements]", statements, bindings);
+		Debug("[ResolveStatements] \n\t%j \n\t%j", statements, bindings);
 
 		// if there are no statements left, just return whatever bindings we
 		// already have.
@@ -47,7 +53,7 @@ export default class Default {
 	 * which there is a valid resolution of this statement.
 	 **/
 	*resolveStatement(statement, bindings=[{}]) {
-		console.verbose("[ResolveStatement]", statement, bindings);
+		Debug("[ResolveStatement] \n\t%j \n\t%j", statement, bindings);
 
 		switch(statement.getClass()) {
 			case "Fact":
@@ -64,8 +70,20 @@ export default class Default {
 	 * Resolve a single fact.
 	 **/
 	*resolveFact(fact, bindings=[{}]) {
-		console.verbose("[ResolveFact]", fact, bindings);
 		let signature = fact.getSignature();
+
+		// check for special case predicates
+		// like =/2 which just unifes each of its arguments
+		if(fact.getHead().getValue() === "=" && fact.getBody().length === 2) {
+			let left = fact.getBody()[0];
+			let right = fact.getBody()[1];
+			for(let b in bindings) {
+				let res = this.unify(left, right, bindings[b]);
+				if(res !== false) {
+					yield res;
+				}
+			}
+		}
 
 		// get all of the statements from the index that match this signature
 		let statements = this.indexer.statementsForSignature(signature);
@@ -77,6 +95,7 @@ export default class Default {
 				// Fact v. Fact is simple, just loop over the bindings and
 				// unify the bodies. anything that unifies is returned.
 				case "Fact":
+					Debug("[ResolveFact] \n\t%j \n\t%j \n\t%j", statement, fact, bindings);
 					for(let b in bindings) {
 						let res = this.unifyArray(statement.getBody(), fact.getBody(), bindings[b]);
 						if(res !== false) {
@@ -86,6 +105,7 @@ export default class Default {
 					break ;
 
 				case "Rule":
+					Debug("[ResolveRule] \n\t%j \n\t%j", fact, bindings);
 					// For Fact v. Rule, we first unify the head of the rule
 					// with the fact. we then take that binding and apply it to
 					// each statement in the body of the rule. if any of them fail
@@ -112,7 +132,7 @@ export default class Default {
 	 **/
 	bind(key, value, binding = {}) {
 		if(binding[key]) return false;
-		console.verbose("[BIND]", key, value, binding);
+		Debug("[BIND] %s \n\t%j \n\t%j", key, value, binding);
 		binding[key] = value;
 		return binding;
 	}
@@ -123,7 +143,7 @@ export default class Default {
 	 * we get a value. otherwise just returns the input.
 	 **/
 	dereference(base, binding = {}) {
-		console.verbose("[DEREFERENCE]", base, binding);
+		Debug("[DEREFERENCE] \n\t%j \n\t%j", base, binding);
 		if(base.getClass() === "Variable") {
 			let currentBoundValue = binding[base.getValue()];
 			if(!currentBoundValue) {
@@ -145,7 +165,7 @@ export default class Default {
 	 * bindings to each successive call.
 	 */
 	unifyArray(bases, queries, binding={}){
-		console.verbose("[UNIFYARRAY]", bases, queries, binding);
+		Debug("[UNIFYARRAY] \n\t%j \n\t%j \n\t%j", bases, queries, binding);
 		let currentBinding = Object.assign({}, binding);
 		for(let i in bases) {
 			currentBinding = this.unify(bases[i], queries[i], currentBinding);
@@ -168,11 +188,15 @@ export default class Default {
 		let queryType = query.getClass();
 
 		console.verbose("[UNIFY]", base, query, binding);
+		Debug("[UNIFY] \n\t%j \n\t%j \n\t%j", base, query, binding);
 
 		// if both terms are literals, just check that they are exactly the same
 		if((baseType === "String" || baseType === "Number") && baseType === queryType) {
 			if(base.getValue() === query.getValue()) return binding;
-			else return false;
+			else {
+				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+				return false;
+			}
 		}
 
 		// If both terms are variables, pick one and link it to the other
@@ -200,6 +224,35 @@ export default class Default {
 			return this.bind(query.getValue(), base, binding);
 		}
 
-		// TODO: unify complex terms
+		// TODO: this doesnt seem to work for resolving rule calls like `a("|"(X,Y)).`
+		// unify complex terms
+		// If term1 and term2 are complex terms, then they unify if and only if:
+		// 	- They have the same functor and arity, and
+		//  - all their corresponding arguments unify, and
+		//  - the variable instantiations are compatible.
+		//  	(For example, it is not possible to instantiate
+		// 		variable X to mia when unifying one pair of arguments,
+		// 		and to instantiate X to vincent when unifying another pair of arguments.)
+		if(baseType === "Fact" && queryType === "Fact") {
+			// check that the symbols match
+			// TODO: could maybe support hilog here by unifying the symbols instead of
+			// just comparing them, would need to make sure the parser could support
+			// variables in the functor position
+			if(base.getHead().getValue() !== query.getHead().getValue()) {
+				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+				return false;
+			}
+
+			if(base.getBody().length !== query.getBody().length) {
+				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+				return false;
+			}
+
+			// now just unify the bodies using unifyArray
+			return this.unifyArray(base.getBody(), query.getBody(), binding);
+		}
+
+		Debug("[FALLTHROUGH FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+		return false;
 	}
 }

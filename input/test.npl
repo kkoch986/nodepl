@@ -27,3 +27,4 @@ rdf(1,"Names",ken).
 "."().
 
 A = A.
+"|"(Hd,Tl) :- "."(Hd,Tl).

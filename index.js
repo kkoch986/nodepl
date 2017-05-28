@@ -14,6 +14,8 @@ import {Deserialize} from "./ast";
 import {Default as Indexer} from "./indexing";
 import {Default as Engine} from "./engine";
 
+
+
 /**
  * A list of the command line arguments formatted for
  * both commandLineArgs and commandLineUsage
@@ -175,7 +177,7 @@ else if(args.query) {
 					for(let v in val) {
 						if(v[0] === "_") continue ;
 						count++;
-						console.log(v + " --> " + engine.dereference(val[v], val).pretty());
+						console.log(v + " --> " + engine.dereference(val[v], val).pretty() + ".");
 					}
 
 					// if there are no bindings, just print out 'Yes.' to indicate

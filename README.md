@@ -20,13 +20,17 @@ and just step through until we don't care anymore.
 Being fast would be a nice bonus...
 
 ## TODO:
-- [ ] unify complex terms (engine.js:203)
+- [ ] better document where hooks are to add standard predicates with special handling.
+- [x] unify complex terms (engine.js:203)
 - [ ] handle syntax errors in query mode without crashing
 - [ ] allow partial query entering in query mode.
-- [ ] lists / syntactic sugar hooks
+- [x] lists
 - [x] clean up code from before my latest major refactoring
 - [ ] actual documentation
 - [ ] handle queries in the source files (already enabled in the parser)
 - [ ] unit testing
 - [ ] lots of examples / profiling
 - [ ] support for comments in the code
+- [ ] a more robust logging set up (log4js?)
+    - partially complete, using `debug` now (`npm install debug`)
+- [ ] engine / compiler directives (`%-` or something)
