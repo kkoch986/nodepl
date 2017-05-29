@@ -127,6 +127,7 @@ if(args.help === true) {
  * Execute a fact file.
  **/
 else if(args.src) {
+	let startTime = new Date().getTime();
 	// Create the parser and indexer
 	const parser = Parser.CreateWithLexer(Grammars.src);
 	const outputFileName = (args.output || "./output/index.json");
@@ -156,15 +157,21 @@ else if(args.src) {
 	});
 
 	rd.on("close", () => {
+		startTime = new Date().getTime();
 		parser.end();
+		console.log("Parsing finished, " + (((new Date().getTime() - startTime) / 1000.0)) + "s");
+		startTime = new Date().getTime();
+
 		// TODO: catch errors here
 		fs.close(outputFP, () => {});
+		console.log("Raw file generated, " + (((new Date().getTime() - startTime) / 1000.0)) + "s");
+		startTime = new Date().getTime();
 
 		// Run the indexer now.
 		(new Indexer()).indexFile(tempFileName, outputFileName).then(() => {
 			// delete the temp file.
 			fs.unlink(tempFileName, () => {
-				console.log("Done.");
+				console.log("Done ("+(((new Date().getTime()) - startTime) / 1000.0)+"s).");
 			});
 		});
 	});

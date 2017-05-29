@@ -37,4 +37,4 @@ Being fast would be a nice bonus...
 - [ ] a more robust logging set up (log4js?)
     - partially complete, using `debug` now (`npm install debug`)
 - [ ] engine / compiler directives (`%-` or something)
-- [ ] profile everything to find slow spots
+- [ ] work on making js-parse actually incremental.
