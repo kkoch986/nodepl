@@ -1,3 +1,5 @@
+import process from "process";
+
 const createDebug = require('debug');
 const Debug = createDebug("resolver");
 
@@ -72,9 +74,13 @@ export default class Default {
 	*resolveFact(fact, bindings=[{}]) {
 		let signature = fact.getSignature();
 
-		// check for special case predicates
-		// like =/2 which just unifes each of its arguments
-		if(fact.getHead().getValue() === "=" && fact.getBody().length === 2) {
+		/////////////////////////////////////////////////////////////////
+		// SPECIAL CASE PREDICATES
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		/// =/2
+		/// Unifies the 2 arguments
+		if(signature === "=/2") {
 			let left = fact.getBody()[0];
 			let right = fact.getBody()[1];
 			for(let b in bindings) {
@@ -84,6 +90,35 @@ export default class Default {
 				}
 			}
 		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		/// writeln/1
+		/// Pretty print the argument
+		else if(signature === "writeln/1") {
+			for(let b in bindings) {
+				process.stdout.write(fact.getBody()[0].pretty(this, bindings[b]) + "\n");
+				yield bindings[b];
+			}
+		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		/// write/2
+		/// Pretty print the argument with no newline
+		else if(signature === "write/1") {
+			for(let b in bindings) {
+				process.stdout.write(fact.getBody()[0].pretty(this, bindings[b]));
+				yield bindings[b];
+			}
+		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		/// fail/0
+		/// reject all bindings.
+		else if(signature === "fail/0") {
+			return ;
+		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
 
 		// get all of the statements from the index that match this signature
 		let statements = this.indexer.statementsForSignature(signature);

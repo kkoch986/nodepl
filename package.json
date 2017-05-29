@@ -17,7 +17,7 @@
     "command-line-args": "^3.0.0",
     "command-line-usage": "^3.0.3",
     "debug": "^2.6.8",
-    "js-parse": "^0.1.0",
+    "js-parse": "0.1.2",
     "pngjs": "^2.3.1",
     "promise": "^7.1.1"
   },
