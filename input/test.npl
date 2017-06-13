@@ -1,30 +1,3 @@
 
-x(a,b).
-x(b,c).
-x(c,d).
 
-y(A,b).
-
-z(A,b,A).
-
-
-friend(alice, bob).
-friend(bob,charlie).
-friend(charlie, dan).
-
-a(alice).
-b(bob).
-fof(A,C) :- friend(A,B), friend(B,C).
-fof(A,C) :- friend(A,B), friend(B,C).
-fofr(A,C) :- friend(A,B), friend(B,C).
-fofr(A,C) :- friend(A,B), friend(A,C).
-
-
-rdf(1,"Names",ken).
-
-
-"."(A,B).
-"."().
-
-A = A.
-"|"(Hd,Tl) :- "."(Hd,Tl).
+sub(X,Y) :- X is (Y * 1) * 2.

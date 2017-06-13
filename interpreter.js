@@ -38,16 +38,38 @@ export default class Interpreter {
 	 * Convert the given parse tree into a FACT.
 	 **/
 	consumeFact(parse) {
+		// in the case of nested infix operators
+		// we may end up here with an array with just one element
+		// (the actual infix fact), just break that out and continue;
+		if(parse.length === 1) {
+			parse = parse[0];
+		}
+
+		// since we moved infix inside fact for source parsing,
+		// we need to check if this fact is an infix. if it is, extract the
+		// body of this fact as the fact.
+		if(parse.body && parse.body[0] && parse.body[0].head === "infix") {
+			parse = parse.body[0];
+			return this.consumeFact(parse);
+		}
+
 		// if for some reason we were passed the entire fact ({head: "fact", body: ....})
 		// just break it out here and pass it down
 		if(parse.head && parse.head === "fact") {
 			parse = parse.body;
 		}
 
+		// handle infix directly
 		if(parse.head === "infix") {
 			// syntactic sugar for infix operators
 			parse.body[1].type = 'string-literal';
 			parse = [parse.body[1], {head: "argument_list", body: [parse.body[0], parse.body[2]]}];
+		}
+
+		// if the parse operation is `is`, treat the left half as a variable
+		// and the right half as a math expression
+		if(parse[1] && parse[1].value === "is") {
+			return this.consumeMathExpression(parse);
 		}
 
 		// the head of a fact is a primitive
@@ -58,6 +80,24 @@ export default class Interpreter {
 
 		Debug("[consumeFact] %j", ret);
 		return ret;
+	}
+
+	/**
+	 * Consume a math expression.
+	 * Math expressions are given in the following format.
+	 * <variable> is <math expression>
+	 * we need to process this separately to ensure valid order of
+	 * operations in evaluation and to handle infix_groups (parenthesis in a math expression)
+	 **/
+	consumeMathExpression(parse) {
+		if(parse.length !== 3 || parse[1].value !== "is" || parse[2].head !== "ME.math_expr") {
+			throw "Invalid Math Expression: " + JSON.stringify(parse);
+		}
+		console.log("CME", parse);
+
+		return new ASTMathExpr(
+			this.consumePrimitive(parse[0]),
+		)
 	}
 
 	/**

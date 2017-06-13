@@ -19,6 +19,15 @@ export default class ASTConcatenation extends ASTBase {
 		}
 	}
 
+	extractVariables() {
+		let ret = [];
+		let body = this.getBody();
+		for(let i in body) {
+			ret = ret.concat(body[i].extractVariables());
+		}
+		return ret;
+	}
+
 	getFacts() {
 		return this.facts;
 	}

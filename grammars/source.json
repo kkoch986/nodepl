@@ -2,7 +2,7 @@
 	"symbols":{
 		"query_operator": {
 			"terminal": true,
-			"match": "\\?="
+			"match": "\\?-"
 		},
 		"implies": {
 			"terminal":true,
@@ -29,10 +29,14 @@
 			"terminal": false,
 			"mergeRecursive": true,
 			"abandon": true
+		},
+		"math_expr": {
+			"terminal": false
 		}
 	},
 	"modules":{
-		"Q":"./grammars/query.json"
+		"Q":"./grammars/query.json",
+		"ME":"./grammars/math_expr.json"
 	},
 	"productions": {
 		"literal": [
@@ -41,14 +45,13 @@
 			[ "Q.id" ]
 		],
 		"statement_list": [
-			["statement_list", "statement"],
-			["statement"]
+			["statement", "statement_list"],
+			[]
 		],
 		"query": [
 			["query_operator", "Q.statement"]
 		],
 		"statement": [
-			["infix", "Q.dot"],
 			["fact", "Q.dot"],
 			["rule", "Q.dot"],
 			["query"]
@@ -62,16 +65,14 @@
 			["literal", "Q.infix_operator", "literal"],
 			["literal", "Q.infix_operator", "fact"],
 			["literal", "Q.infix_operator", "Q.list"],
-			["fact", "Q.infix_operator", "Q.variable_name"],
-			["fact", "Q.infix_operator", "literal"],
-			["fact", "Q.infix_operator", "fact"],
-			["fact", "Q.infix_operator", "Q.list"],
 			["Q.list", "Q.infix_operator", "Q.variable_name"],
 			["Q.list", "Q.infix_operator", "literal"],
 			["Q.list", "Q.infix_operator", "fact"],
 			["Q.list", "Q.infix_operator", "Q.list"]
 		],
 		"fact": [
+			["Q.variable_name", "Q.is", "ME.math_expr"],
+			["infix"],
 			["Q.id", "Q.open_paren", "argument_list", "Q.close_paren"],
 			["Q.id", "Q.open_paren", "Q.close_paren"],
 			["Q.string-literal", "Q.open_paren", "argument_list", "Q.close_paren"],

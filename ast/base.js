@@ -14,4 +14,12 @@ export default class ASTBase {
 	pretty(engine=null,binding={}) {
 		return JSON.stringify(this);
 	}
+
+	extractVariables() {
+		return [];
+	}
+
+	ground(engine, binding={}){
+		return this;
+	}
 }

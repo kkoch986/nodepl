@@ -57,6 +57,14 @@ class ASTVariable extends ASTString  {
 		}
 		return this.getValue();
 	}
+
+	extractVariables() {
+		return [this.value];
+	}
+
+	ground(engine, binding={}) {
+		return engine.dereference(this, binding).ground(engine,binding);
+	}
 }
 
 

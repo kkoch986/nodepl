@@ -34,6 +34,25 @@ export default class ASTFact extends ASTBase {
 		return this.body;
 	}
 
+	extractVariables() {
+		let ret = [];
+		let body = this.getBody();
+		for(let i in body) {
+			ret = ret.concat(body[i].extractVariables());
+		}
+		return ret;
+	}
+
+	ground(engine,binding={}) {
+		let newBody = [];
+		let oldBody = this.getBody();
+		for(let i in oldBody){
+			newBody[i] = oldBody[i].ground(engine,binding);
+		}
+
+		return new ASTFact(this.getHead(), newBody);
+	}
+
 	pretty(engine=null,binding={}) {
 		let head = this.getHead();
 		let body = this.getBody();

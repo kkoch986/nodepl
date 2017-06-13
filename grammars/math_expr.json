@@ -1,0 +1,43 @@
+{
+	"symbols":{
+		"plus": {
+			"terminal": true,
+			"match": "[\\+]"
+		},
+		"minus": {
+			"terminal": true,
+			"match": "[\\-]"
+		},
+		"times": {
+			"terminal": true,
+			"match": "[\\*]"
+		},
+		"divide": {
+			"terminal": true,
+			"match": "[\\/]"
+		}
+	},
+	"modules":{
+		"Q":"./grammars/query.json"
+	},
+	"productions": {
+		"factor":[
+			["Q.variable_name"],
+			["Q.numeric-literal"],
+			["Q.open_paren", "math_expr", "Q.close_paren"]
+		],
+		"mult":[
+			["factor", "times", "factor"],
+			["factor", "divide", "factor"],
+			["factor"]
+		],
+		"math_expr":[
+			["mult", "plus", "mult"],
+			["mult", "minus", "mult"],
+			["mult"]
+		]
+	},
+	"startSymbols":[
+		"math_expr"
+	]
+}

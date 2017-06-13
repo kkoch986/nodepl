@@ -75,7 +75,7 @@ function printNext(results, engine, rd, next) {
 		for(let v in val) {
 			if(v[0] === "_") continue ;
 			count++;
-			console.log(v + " --> " + engine.dereference(val[v], val).pretty(engine, val) + ".");
+			console.log(v + " --> " + val[v].pretty(engine, val) + ".");
 		}
 
 		// if there are no bindings, just print out 'Yes.' to indicate
@@ -128,37 +128,92 @@ if(args.help === true) {
  **/
 else if(args.src) {
 	let startTime = new Date().getTime();
+
+	// support direct import of RDF triples
+	let parts = args.src.split(".");
+	let extension = parts[parts.length - 1];
+	let importRDF = ["ttl", "nt"].indexOf(extension) >= 0;
+
 	// Create the parser and indexer
-	const parser = Parser.CreateWithLexer(Grammars.src);
 	const outputFileName = (args.output || "./output/index.json");
 	const tempFileName = outputFileName + ".raw";
 	const outputFP = fs.openSync(tempFileName, "w");
-
-	parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
-	parser.on("production", (tok) => console.verbose("PROD", tok));
-	parser.on("accept", (tok) => console.verbose("\n\nACCEPT", parser.prettyPrint("  ")));
-	parser.on("error", (error) => {throw error.message});
-
-	parser.on("statement", (statement) => {
-		const ast = new AST(statement).get();
-		for(let i in ast) {
-			// TODO: catch errors here.
-			fs.write(outputFP, JSON.stringify(ast[i]) + "\n", () => {});
-		}
-	});
+	const parser = Parser.CreateWithLexer(Grammars.src);
 
 	const rd = readline.createInterface({
 		input: fs.createReadStream(args.src),
 		terminal:false
 	});
 
-	rd.on("line", (line) => {
-		parser.append(line + "\n");
-	});
+	/////////////////////////////////////////////////////////
+	// Special RDF import
+	/////////////////////////////////////////////////////////
+	let lineCount = 0;
+	if(importRDF) {
+		let rdfPredicateName = args.rdfAs || "rdf";
+		console.log("RDF Data Import");
+		let N3 = require('n3');
+		var rdfParser = N3.Parser();
+		const parser = Parser.CreateWithLexer(Grammars.src);
+		parser.on("accept", (tok) => {
+			console.verbose("\n\nACCEPT", parser.prettyPrint("  "))
+		});
+		parser.on("error", (error) => {
+			console.log("Unable to process line", error);
+		});
+		parser.on("statement", (statement) => {
+			const ast = new AST(statement).get();
+			for(let i in ast) {
+				// TODO: catch errors here.
+				fs.write(outputFP, JSON.stringify(ast[i]) + "\n", () => {});
+				lineCount++;
+				if(lineCount % 500 === 0) {
+					console.log(lineCount + " lines processed so far.");
+				}
+			}
+		});
+
+		rd.on("line", (line) => {
+			let parse = rdfParser.parse(line)[0];
+			if(!parse) return ;
+			let data = rdfPredicateName + '('+
+				JSON.stringify(parse.subject) + "," +
+				JSON.stringify(parse.predicate) + "," +
+				JSON.stringify(parse.object) + "," +
+				JSON.stringify(parse.graph) +
+			').';
+			parser.append(data);
+			parser.end();
+		});
+	}
+	/////////////////////////////////////////////////////////
+	// normal prolog import
+	/////////////////////////////////////////////////////////
+	else {
+		parser.getLexer().on("token", (tok) => console.verbose("TOK", tok));
+		parser.on("production", (tok) => console.verbose("PROD", tok));
+		parser.on("accept", (tok) => console.verbose("\n\nACCEPT", parser.prettyPrint("  ")));
+		parser.on("error", (error) => {throw error.message});
+
+		parser.on("statement", (statement) => {
+			console.verbose(JSON.stringify(statement));
+			const ast = new AST(statement).get();
+			for(let i in ast) {
+				// TODO: catch errors here.
+				fs.write(outputFP, JSON.stringify(ast[i]) + "\n", () => {});
+			}
+		});
+		rd.on("line", (line) => {
+			parser.append(line);
+		});
+	}
 
 	rd.on("close", () => {
-		startTime = new Date().getTime();
-		parser.end();
+		if(!importRDF) {
+			parser.end();
+		} else {
+			console.log(lineCount + " total lines processed");
+		}
 		console.log("Parsing finished, " + (((new Date().getTime() - startTime) / 1000.0)) + "s");
 		startTime = new Date().getTime();
 
@@ -202,7 +257,7 @@ else if(args.query) {
 
 		function next() {
 			// TODO: allow partial statements here
-			rd.question('> ', (answer) => {
+			rd.question('?- ', (answer) => {
 				if(!answer.trim()) {
 					next();
 				} else {

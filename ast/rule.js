@@ -40,4 +40,8 @@ export default class ASTRule extends ASTBase {
 	getBody() {
 		return this.body;
 	}
+
+	extractVariables() {
+		throw "Rule doesnt support extract variables.";
+	}
 }

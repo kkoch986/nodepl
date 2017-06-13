@@ -3,6 +3,7 @@ import {ASTNumber, ASTString, ASTVariable} from "./primitives";
 import ASTFact from "./fact";
 import ASTRule from "./rule";
 import ASTConcatenation from "./concatenation";
+import ASTMathExpr from "./math_expr";
 
 /**
  * Take a javascript object and return it as an AST class or array of AST classes
@@ -33,6 +34,10 @@ function Deserialize(obj) {
 		case "Concatenation":
 			return new ASTConcatenation(Deserialize(obj.facts));
 
+		// Math expression
+		case "MathExpr":
+			return new ASTMathExpr(Deserialize(obj.leftHand), Deserialize(obj.rightHand));
+
 		// in default, freak out.
 		default:
 			throw "AST unable to deserialize: " + JSON.stringify(obj);
@@ -49,5 +54,6 @@ export {
 	ASTFact,
 	ASTRule,
 	ASTConcatenation,
+	ASTMathExpr,
 	Deserialize
 }

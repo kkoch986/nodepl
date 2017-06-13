@@ -1,4 +1,37 @@
 
+half_step_up("A","A#").
+half_step_up("A#","B").
+half_step_up("B","C").
+half_step_up("C","C#").
+half_step_up("C#","D").
+half_step_up("D","D#").
+half_step_up("D#","E").
+half_step_up("E","F").
+half_step_up("F","F#").
+half_step_up("F#","G").
+half_step_up("G","G#").
+half_step_up("G#","A").
+
+whole_step_up(A,B) :- half_step_up(A,C), half_step_up(C,B).
+
+major_scale(Key, [Key, N1, N2, N3, N4, N5, N6, N7]) :-
+	whole_step_up(Key, N1),
+	whole_step_up(N1, N2),
+	half_step_up(N2, N3),
+	whole_step_up(N3, N4),
+	whole_step_up(N4, N5),
+	whole_step_up(N5, N6),
+	half_step_up(N6, N7).
+
+major_triad(Key, [Root,Third,Fifth]) :-
+	major_scale(Key, [Root, _2, Third, _4, Fifth,_6,_7,_8]).
+
+
+
+
+
+
+
 all_notes(ChordName, [ENote, ANote, DNote, GNote, BNote, HighENote]) :-
     chord(ChordName, _, _E, _A, _D, _G, _B, _e),
     note(5, _E, ENote),

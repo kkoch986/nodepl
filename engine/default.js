@@ -140,7 +140,7 @@ export default class Default {
 					break ;
 
 				case "Rule":
-					Debug("[ResolveRule] \n\t%j \n\t%j", fact, bindings);
+					Debug("[ResolveRule] \n\t%j \n\t%j \n\t%j", fact, statement, bindings);
 					// For Fact v. Rule, we first unify the head of the rule
 					// with the fact. we then take that binding and apply it to
 					// each statement in the body of the rule. if any of them fail
@@ -148,7 +148,14 @@ export default class Default {
 					for(let b in bindings) {
 						let initialBinding = this.unifyArray(statement.getHead().getBody(), fact.getBody(), bindings[b]);
 						for(let result of this.resolveStatements(statement.getBody(), [initialBinding])) {
-							yield result;
+							let vars = fact.extractVariables();
+							let newBinding = Object.assign({},bindings[b]);
+							for(let v in vars) {
+								if(result[vars[v]]) {
+									newBinding[vars[v]] = result[vars[v]].ground(this,result);
+								}
+							}
+							yield newBinding;
 						}
 					}
 					break ;
