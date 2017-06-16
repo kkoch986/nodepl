@@ -1,6 +1,17 @@
 const createDebug = require('debug');
 const Debug = createDebug("interpreter");
-import {ASTVariable, ASTFact, ASTNumber, ASTString, ASTRule, ASTConcatenation} from "./ast";
+import {
+    ASTVariable,
+    ASTFact,
+    ASTNumber,
+    ASTString,
+    ASTRule,
+    ASTConcatenation,
+    ASTMathAssignment,
+    ASTMathExpr,
+    ASTMathFactor,
+    ASTMathMult
+} from "./ast";
 
 /**
  * Take the tokens compiled by the parser and convert them into an AST.
@@ -69,7 +80,7 @@ export default class Interpreter {
 		// if the parse operation is `is`, treat the left half as a variable
 		// and the right half as a math expression
 		if(parse[1] && parse[1].value === "is") {
-			return this.consumeMathExpression(parse);
+			return this.consumeMathAssignment(parse);
 		}
 
 		// the head of a fact is a primitive
@@ -89,16 +100,87 @@ export default class Interpreter {
 	 * we need to process this separately to ensure valid order of
 	 * operations in evaluation and to handle infix_groups (parenthesis in a math expression)
 	 **/
-	consumeMathExpression(parse) {
+	consumeMathAssignment(parse) {
 		if(parse.length !== 3 || parse[1].value !== "is" || parse[2].head !== "ME.math_expr") {
-			throw "Invalid Math Expression: " + JSON.stringify(parse);
+			throw "Invalid Math Assignment: " + JSON.stringify(parse);
 		}
-		console.log("CME", parse);
 
-		return new ASTMathExpr(
+		return new ASTMathAssignment(
 			this.consumePrimitive(parse[0]),
-		)
+            this.consumeMathExpression(parse[2])
+		);
 	}
+
+    /**
+     * Consume a math expression.
+     * math expressions break down according to the math_expr grammar.
+     **/
+    consumeMathExpression(parse) {
+
+        // the left hand side should be a MathMult
+        if(parse.head !== "ME.math_expr" || (parse.body.length !== 1 && parse.body.length !== 3)) {
+            throw "Invalid Math Expression: " + JSON.stringify(parse);
+        }
+
+        if(parse.body.length === 1) {
+            return new ASTMathExpr(
+                this.consumeMathMult(parse.body[0])
+            );
+        } else {
+            let operation = parse.body[1].type;
+            if(operation !== "ME.plus" && operation !== "ME.minus") {
+                throw "Invalid Math Expression operator: " + JSON.stringify(parse);
+            }
+            return new ASTMathExpr(
+                this.consumeMathMult(parse.body[0]),
+                operation === "ME.plus" ? "+" : "-",
+                this.consumeMathMult(parse.body[2])
+            );
+        }
+    }
+
+    /**
+     * Consume a math MULT mult is almost the same as expr except
+     * it is factor [ (*|/) factor]
+     **/
+    consumeMathMult(parse){
+        // the left hand side should be a Factor
+        if(parse.head !== "ME.mult" || (parse.body.length !== 1 && parse.body.length !== 3)) {
+            throw "Invalid Math Mult: " + JSON.stringify(parse);
+        }
+
+        if(parse.body.length === 1) {
+            return new ASTMathMult(
+                this.consumeMathFactor(parse.body[0])
+            );
+        } else {
+            let operation = parse.body[1].type;
+            if(operation !== "ME.times" && operation !== "ME.divide") {
+                throw "Invalid Math Mult operator: " + JSON.stringify(parse);
+            }
+            return new ASTMathMult(
+                this.consumeMathFactor(parse.body[0]),
+                operation === "ME.times" ? "*" : "/",
+                this.consumeMathFactor(parse.body[2])
+            );
+        }
+    }
+
+    /**
+     * A factor should either be a number or variable.
+     * it can also be a math expr in parenthesis
+     **/
+    consumeMathFactor(parse) {
+        if(parse.head !== "ME.factor" || parse.body.length !== 1) {
+            throw "Invalid Math Factor: " + JSON.stringify(parse);
+        }
+
+        if(parse.body[0].head === "ME.math_expr")  {
+            return new ASTMathFactor(this.consumeMathExpression(parse.body[0]));
+        } else {
+            return new ASTMathFactor(this.consumePrimitive(parse.body[0]));
+        }
+    }
 
 	/**
 	 * Convert the given parse into a rule.

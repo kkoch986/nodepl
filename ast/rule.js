@@ -19,8 +19,8 @@ export default class ASTRule extends ASTBase {
 
 		// everything in the rule body should be a fact at the top level.
 		for(let i in this.body) {
-			if(this.body[i].getClass() !== "Fact") {
-				throw "Every item in Rule body MUST be a Fact (found "+this.body[i]+").";
+			if(this.body[i].getClass() !== "Fact" && this.body[i].getClass() !== "MathAssignment") {
+				throw "Every item in Rule body MUST be a Fact (found "+JSON.stringify(this.body[i])+").";
 			}
 		}
 	}

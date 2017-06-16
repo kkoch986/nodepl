@@ -3,12 +3,14 @@ import {ASTNumber, ASTString, ASTVariable} from "./primitives";
 import ASTFact from "./fact";
 import ASTRule from "./rule";
 import ASTConcatenation from "./concatenation";
-import ASTMathExpr from "./math_expr";
+import {ASTMathAssignment, ASTMathExpr, ASTMathFactor, ASTMathMult} from "./math_expr";
 
 /**
  * Take a javascript object and return it as an AST class or array of AST classes
  **/
 function Deserialize(obj) {
+	if(!obj) return obj;
+
 	// if its an array, just deserialize each element
 	if(Array.isArray(obj)) {
 		return obj.map(i => Deserialize(i));
@@ -35,8 +37,14 @@ function Deserialize(obj) {
 			return new ASTConcatenation(Deserialize(obj.facts));
 
 		// Math expression
+		case "MathAssignment":
+			return new ASTMathAssignment(Deserialize(obj.leftHand), Deserialize(obj.rightHand));
 		case "MathExpr":
-			return new ASTMathExpr(Deserialize(obj.leftHand), Deserialize(obj.rightHand));
+			return new ASTMathExpr(Deserialize(obj.leftHand), obj.operation, Deserialize(obj.rightHand));
+		case "MathMult":
+			return new ASTMathMult(Deserialize(obj.leftHand), obj.operation, Deserialize(obj.rightHand));
+		case "MathFactor":
+			return new ASTMathFactor(Deserialize(obj.value));
 
 		// in default, freak out.
 		default:
@@ -54,6 +62,9 @@ export {
 	ASTFact,
 	ASTRule,
 	ASTConcatenation,
+	ASTMathAssignment,
 	ASTMathExpr,
+	ASTMathFactor,
+	ASTMathMult,
 	Deserialize
 }
