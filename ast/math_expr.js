@@ -18,6 +18,9 @@ class ASTMathAssignment extends ASTBase {
 			throw "Math Assignment Right Hand MUST be a MathExpr.";
 		}
 	}
+
+	getLeftHand() { return this.leftHand; }
+	getRightHand() { return this.rightHand; }
 }
 
 class ASTMathExpr extends ASTBase {
@@ -45,6 +48,10 @@ class ASTMathExpr extends ASTBase {
 			}
 		}
 	}
+
+	getOperation() { return this.operation; }
+	getLeftHand() { return this.leftHand; }
+	getRightHand() { return this.rightHand; }
 }
 
 class ASTMathMult extends ASTBase {
@@ -60,7 +67,7 @@ class ASTMathMult extends ASTBase {
 			throw "Math Mult Left hand must be a Factor.";
 		}
 
-		if(this.operation !== null) {
+		if(this.operation && this.operation !== null) {
 			// assert the operation is either + or -
 			if(this.operation !== "*" && this.operation !== "/") {
 				throw "Math Expression operation must be either * or /";
@@ -72,6 +79,10 @@ class ASTMathMult extends ASTBase {
 			}
 		}
 	}
+
+	getOperation() { return this.operation; }
+	getLeftHand() { return this.leftHand; }
+	getRightHand() { return this.rightHand; }
 }
 
 class ASTMathFactor extends ASTBase {
@@ -85,6 +96,8 @@ class ASTMathFactor extends ASTBase {
 
 		this.value = value;
 	}
+
+	getValue() { return this.value; }
 }
 
 

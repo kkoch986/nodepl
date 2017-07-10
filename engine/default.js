@@ -1,10 +1,24 @@
 import process from "process";
+import {ASTNumber} from "../ast";
 
 const createDebug = require('debug');
 const Debug = createDebug("resolver");
 
 // TODO: use this to profile resolution
 const Profile = createDebug("profile:resolver");
+
+function PrettyBindings(bindings = [{}]) {
+	let ret = [];
+	for(let b in bindings) {
+		let binding = bindings[b];
+		let res = {};
+		for(let a in binding) {
+			res[a] = binding[a].pretty();
+		}
+		ret.push(res);
+	}
+	return ret;
+}
 
 /**
  * The class where most of the magic happens.
@@ -21,7 +35,7 @@ export default class Default {
 	 * bindings as they are discovered.
 	 **/
 	*resolveStatements(statements, bindings = [{}]) {
-		Debug("[ResolveStatements] \n\t%j \n\t%j", statements, bindings);
+		Debug("[ResolveStatements] \n\t%j \n\t%j", statements.map(i => i.pretty()), PrettyBindings(bindings));
 
 		// if there are no statements left, just return whatever bindings we
 		// already have.
@@ -55,11 +69,22 @@ export default class Default {
 	 * which there is a valid resolution of this statement.
 	 **/
 	*resolveStatement(statement, bindings=[{}]) {
-		Debug("[ResolveStatement] \n\t%j \n\t%j", statement, bindings);
+		Debug("[ResolveStatement] \n\t%j \n\t%j", statement.pretty(), PrettyBindings(bindings));
 
 		switch(statement.getClass()) {
 			case "Fact":
 				for(let r of this.resolveFact(statement, bindings)) {
+					yield r;
+				}
+				break ;
+			case "MathAssignment":
+				// TODO: explore some kind of math equation resolution
+				//       maybe solve something with math exprs on both sides
+				//       not really sure about that but it could be really cool.
+				// The RHS should be a math Expr, we will attempt to evaluate that
+				// down to a numeric value and then assign that to the variable
+				// on the LHS.
+				for(let r of this.resolveMathAssignment(statement, bindings)) {
 					yield r;
 				}
 				break ;
@@ -69,10 +94,98 @@ export default class Default {
 	}
 
 	/**
+	 * Resolve a math assignment.
+	 **/
+	*resolveMathAssignment(statement, bindings=[{}]) {
+		let rhs = statement.getRightHand();
+		let lhs = statement.getLeftHand();
+		for(let b in bindings) {
+			let result = this.resolveMathExpr(rhs, bindings[b]);
+			if(result !== false) {
+				// try to unify the RHS and LHS
+				let res = this.unify(lhs, new ASTNumber(result), bindings[b]);
+				if(res !== false) {
+					yield res;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Compute the result of a math expr for a single binding.
+	 * will return false or a numeric value as the result.
+	 **/
+	resolveMathExpr(expr, binding={}) {
+		// resolve the lhs first.
+		let lhs = this.resolveMathMult(expr.getLeftHand(), binding);
+
+		if(expr.getOperation()) {
+			let rhs = this.resolveMathMult(expr.getRightHand(), binding);
+			if(expr.getOperation() === "-") {
+				return lhs - rhs;
+			} else if(expr.getOperation() === "+") {
+				return lhs + rhs;
+			} else {
+				throw "Unknown math expression operation: " + JSON.stringify(expr);
+			}
+		} else {
+			return lhs;
+		}
+	}
+
+	/**
+	 * compute the result of a math mult for a single binding.
+	 * should return false or a numeric value as the result.
+	 **/
+	resolveMathMult(mult, binding={}) {
+		// resolve the lhs first since that is always set.
+		let lhs = this.resolveMathFactor(mult.getLeftHand(), binding);
+		if(mult.getOperation()) {
+			let rhs = this.resolveMathFactor(mult.getRightHand(), binding);
+			if(mult.getOperation() === "*") {
+				return lhs * rhs;
+			} else if(mult.getOperation() === "/") {
+				return lhs / rhs;
+			} else {
+				throw "Unknown math mult operation: " + JSON.stringify(mult);
+			}
+		} else {
+			return lhs;
+		}
+	}
+
+	/**
+	 * compute the result of a math factor for a single binding.
+	 * should return false or a numeric value as the result.
+	 **/
+	resolveMathFactor(mult,binding={}) {
+		let val = mult;
+		if(val.getClass() === "MathFactor") {
+			val = mult.getValue();
+		}
+		if(val.getClass() === "Number") {
+			return val.getValue();
+		} else if(val.getClass() === "Variable") {
+			let newVal = this.dereference(val, binding);
+			if(newVal && (newVal.getValue() !== val.getValue() || newVal.getClass() !== val.getClass())) {
+				return this.resolveMathFactor(newVal,binding);
+			}
+			return false;
+		} else if(val.getClass() === "MathExpr") {
+			return this.resolveMathExpr(val,binding);
+		}
+
+		// if its not one of the above classes, return false
+		return false;
+	}
+
+	/**
 	 * Resolve a single fact.
 	 **/
 	*resolveFact(fact, bindings=[{}]) {
 		let signature = fact.getSignature();
+
+		Debug("[EnterResolveFact] \n\t%j \n\t%j", fact.pretty(), PrettyBindings(bindings));
 
 		/////////////////////////////////////////////////////////////////
 		// SPECIAL CASE PREDICATES
@@ -92,8 +205,25 @@ export default class Default {
 		}
 		/////////////////////////////////////////////////////////////////
 		/////////////////////////////////////////////////////////////////
-		/// writeln/1
+		/// !/0
+		/// Prolog Cut, always succeed but discontinue future searches
+		/// once we pass this point.
+		else if(signature === "!/0") {
+			console.log("CUT!!!");
+			for(let b in bindings) {
+				yield bindings[b];
+			}
+		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		/// writeln/0 and writeln/1
 		/// Pretty print the argument
+		else if(signature === "writeln/0") {
+			for(let b in bindings) {
+				process.stdout.write("\n");
+				yield bindings[b];
+			}
+		}
 		else if(signature === "writeln/1") {
 			for(let b in bindings) {
 				process.stdout.write(fact.getBody()[0].pretty(this, bindings[b]) + "\n");
@@ -106,7 +236,7 @@ export default class Default {
 		/// Pretty print the argument with no newline
 		else if(signature === "write/1") {
 			for(let b in bindings) {
-				process.stdout.write(fact.getBody()[0].pretty(this, bindings[b]));
+				process.stdout.write(fact.getBody()[0].pretty(this, bindings[b]) + "");
 				yield bindings[b];
 			}
 		}
@@ -119,51 +249,61 @@ export default class Default {
 		}
 		/////////////////////////////////////////////////////////////////
 		/////////////////////////////////////////////////////////////////
-
-		// get all of the statements from the index that match this signature
-		let statements = this.indexer.statementsForSignature(signature);
-		let statement = statements.next().value;
-		while(statement) {
-
-			// loop over the bindings and try to unify things
-			switch(statement.getClass()) {
-				// Fact v. Fact is simple, just loop over the bindings and
-				// unify the bodies. anything that unifies is returned.
-				case "Fact":
-					Debug("[ResolveFact] \n\t%j \n\t%j \n\t%j", statement, fact, bindings);
-					for(let b in bindings) {
-						let res = this.unifyArray(statement.getBody(), fact.getBody(), bindings[b]);
-						if(res !== false) {
-							yield res;
-						}
-					}
-					break ;
-
-				case "Rule":
-					Debug("[ResolveRule] \n\t%j \n\t%j \n\t%j", fact, statement, bindings);
-					// For Fact v. Rule, we first unify the head of the rule
-					// with the fact. we then take that binding and apply it to
-					// each statement in the body of the rule. if any of them fail
-					// the entire rule fails since the concatenation is an AND operation.
-					for(let b in bindings) {
-						let initialBinding = this.unifyArray(statement.getHead().getBody(), fact.getBody(), bindings[b]);
-						for(let result of this.resolveStatements(statement.getBody(), [initialBinding])) {
-							let vars = fact.extractVariables();
-							let newBinding = Object.assign({},bindings[b]);
-							for(let v in vars) {
-								if(result[vars[v]]) {
-									newBinding[vars[v]] = result[vars[v]].ground(this,result);
-								}
-							}
-							yield newBinding;
-						}
-					}
-					break ;
-				default:
-					throw "[ResolveFact] Unknown statement type: " + JSON.stringify(statement);
+		/// true/0
+		/// accept all bindings.
+		else if(signature === "true/0") {
+			for(let b in bindings) {
+				yield bindings[b];
 			}
+		}
+		/////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////
+		else {
+			// get all of the statements from the index that match this signature
+			let statements = this.indexer.statementsForSignature(signature);
+			let statement = statements.next().value;
+			while(statement) {
 
-			statement = statements.next().value;
+				// loop over the bindings and try to unify things
+				switch(statement.getClass()) {
+					// Fact v. Fact is simple, just loop over the bindings and
+					// unify the bodies. anything that unifies is returned.
+					case "Fact":
+						Debug("[ResolveFact] \n\t%j \n\t%j \n\t%j", statement.pretty(), fact.pretty(), PrettyBindings(bindings));
+						for(let b in bindings) {
+							let res = this.unifyArray(statement.getBody(), fact.getBody(), bindings[b]);
+							if(res !== false) {
+								yield res;
+							}
+						}
+						break ;
+
+					case "Rule":
+						Debug("[ResolveRule] \n\t%j \n\t%j \n\t%j", fact.pretty(), statement.pretty(), PrettyBindings(bindings));
+						// For Fact v. Rule, we first unify the head of the rule
+						// with the fact. we then take that binding and apply it to
+						// each statement in the body of the rule. if any of them fail
+						// the entire rule fails since the concatenation is an AND operation.
+						for(let b in bindings) {
+							let initialBinding = this.unifyArray(statement.getHead().getBody(), fact.getBody(), bindings[b]);
+							for(let result of this.resolveStatements(statement.getBody(), [initialBinding])) {
+								let vars = fact.extractVariables();
+								let newBinding = Object.assign({},bindings[b]);
+								for(let v in vars) {
+									if(result[vars[v]]) {
+										newBinding[vars[v]] = result[vars[v]].ground(this,result);
+									}
+								}
+								yield newBinding;
+							}
+						}
+						break ;
+					default:
+						throw "[ResolveFact] Unknown statement type: " + JSON.stringify(statement);
+				}
+
+				statement = statements.next().value;
+			}
 		}
 	}
 
@@ -174,7 +314,7 @@ export default class Default {
 	 **/
 	bind(key, value, binding = {}) {
 		if(binding[key]) return false;
-		Debug("[BIND] %s \n\t%j \n\t%j", key, value, binding);
+		Debug("[BIND] %s \n\t%j \n\t%j", key, value.pretty(), PrettyBindings([binding]));
 		binding[key] = value;
 		return binding;
 	}
@@ -185,7 +325,7 @@ export default class Default {
 	 * we get a value. otherwise just returns the input.
 	 **/
 	dereference(base, binding = {}) {
-		Debug("[DEREFERENCE] \n\t%j \n\t%j", base, binding);
+		Debug("[DEREFERENCE] \n\t%j \n\t%j", base.pretty(), PrettyBindings([binding]));
 		if(base.getClass() === "Variable") {
 			let currentBoundValue = binding[base.getValue()];
 			if(!currentBoundValue) {
@@ -207,7 +347,7 @@ export default class Default {
 	 * bindings to each successive call.
 	 */
 	unifyArray(bases, queries, binding={}){
-		Debug("[UNIFYARRAY] \n\t%j \n\t%j \n\t%j", bases, queries, binding);
+		Debug("[UNIFYARRAY] \n\t%j \n\t%j \n\t%j", bases.map(i => i.pretty()), queries.map(i => i.pretty()), PrettyBindings([binding]));
 		let currentBinding = Object.assign({}, binding);
 		for(let i in bases) {
 			currentBinding = this.unify(bases[i], queries[i], currentBinding);
@@ -229,8 +369,7 @@ export default class Default {
 		let baseType = base.getClass();
 		let queryType = query.getClass();
 
-		console.verbose("[UNIFY]", base, query, binding);
-		Debug("[UNIFY] \n\t%j \n\t%j \n\t%j", base, query, binding);
+		Debug("[UNIFY] \n\t%j \n\t%j \n\t%j", base.pretty(), query.pretty(), PrettyBindings([binding]));
 
 		// if both terms are literals, just check that they are exactly the same
 		if((baseType === "String" || baseType === "Number") && baseType === queryType) {
@@ -281,12 +420,12 @@ export default class Default {
 			// just comparing them, would need to make sure the parser could support
 			// variables in the functor position
 			if(base.getHead().getValue() !== query.getHead().getValue()) {
-				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base.pretty(), query.pretty(), PrettyBindings([binding]));
 				return false;
 			}
 
 			if(base.getBody().length !== query.getBody().length) {
-				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+				Debug("[FAIL] \n\t%j \n\t%j \n\t%j", base.pretty(), query.pretty(), PrettyBindings([binding]));
 				return false;
 			}
 
@@ -294,7 +433,7 @@ export default class Default {
 			return this.unifyArray(base.getBody(), query.getBody(), binding);
 		}
 
-		Debug("[FALLTHROUGH FAIL] \n\t%j \n\t%j \n\t%j", base, query, binding);
+		Debug("[FALLTHROUGH FAIL] \n\t%j \n\t%j \n\t%j", base.pretty(), query.pretty(), binding);
 		return false;
 	}
 }

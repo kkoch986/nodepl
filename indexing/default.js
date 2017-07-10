@@ -31,6 +31,7 @@ export default class DefaultIndexer {
 	}
 
 	/**
+	 * TODO: consider moving this to the interpreter, anonymize the variables before writing them to the raw file.
 	 * Replace all of the variable names in the given structure with anonymized
 	 * names that begin with _h followed by incrementing integers.
 	 * This is to avoid problems where, for instance, the rule:
@@ -42,8 +43,9 @@ export default class DefaultIndexer {
 	 *   fof(_h1, _h2) :- friend(_h1, _h3), friend(_h3, _h2).
 	 **/
 	anonymizeVariables(ast, mapped = {}) {
+		if(!ast) return mapped;
 		switch(ast.getClass()) {
-			case "Variable":
+			case "Variable": {
 				if(mapped[ast.getValue()]) {
 					ast.setValue(mapped[ast.getValue()]);
 				} else {
@@ -52,22 +54,37 @@ export default class DefaultIndexer {
 					ast.setValue(nextVal);
 				}
 				break ;
+			}
 			case "Fact": {
 				let body = ast.getBody();
 				for(let i in body) {
 					mapped = this.anonymizeVariables(body[i], mapped);
 				}
+				break ;
 			}
-			break ;
 			case "Rule": {
 				mapped = this.anonymizeVariables(ast.getHead());
 				let body = ast.getBody();
 				for(let i in body) {
 					mapped = this.anonymizeVariables(body[i], mapped);
 				}
-
+				break ;
 			}
-			break ;
+			case "MathAssignment":
+				mapped = this.anonymizeVariables(ast.getLeftHand(), mapped);
+				mapped = this.anonymizeVariables(ast.getRightHand(), mapped);
+				break ;
+			case "MathExpr":
+				mapped = this.anonymizeVariables(ast.getLeftHand(), mapped);
+				mapped = this.anonymizeVariables(ast.getRightHand(), mapped);
+				break ;
+			case "MathMult":
+				mapped = this.anonymizeVariables(ast.getLeftHand(), mapped);
+				mapped = this.anonymizeVariables(ast.getRightHand(), mapped);
+				break ;
+			case "MathFactor":
+				mapped = this.anonymizeVariables(ast.getValue(), mapped);
+				break ;
 		}
 
 		return mapped;

@@ -1,3 +1,11 @@
 
+test(X,Y) :- Y is X - 1.
+sub(X,Y,R) :- R is X - Y.
 
-sub(X,Y) :- X is (Y * 1) * 2.
+t(A,A).
+
+nth(List,Index,Result) :- nth(List,Index,Result,0).
+nth([Result|Tail],Index,Result,Index) :- !.
+nth([Hd|Tail],Index,Result,Counter) :-
+	NewCounter is Counter + 1,
+	nth(Tail,Index,Result,NewCounter).

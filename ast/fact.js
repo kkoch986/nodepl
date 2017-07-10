@@ -67,7 +67,7 @@ export default class ASTFact extends ASTBase {
 			let output = [];
 			let currentFact = this;
 			while(currentFact) {
-				if(currentFact.body.length === 0) break ;
+				if((currentFact.body || []).length === 0) break ;
 				output.push(currentFact.body[0].pretty(engine,binding));
 				currentFact = currentFact.body[1];
 			}

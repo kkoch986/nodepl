@@ -73,6 +73,7 @@
 		"fact": [
 			["Q.variable_name", "Q.is", "ME.math_expr"],
 			["infix"],
+			["Q.cut"],
 			["Q.id", "Q.open_paren", "argument_list", "Q.close_paren"],
 			["Q.id", "Q.open_paren", "Q.close_paren"],
 			["Q.string-literal", "Q.open_paren", "argument_list", "Q.close_paren"],

@@ -23,8 +23,9 @@ Being fast would be a nice bonus...
 - [ ] better document where hooks are to add standard predicates with special handling.
     - [x] fail predicate
     - [ ] ! (cut)
-    - [ ] number math
-	    - note: due to parser limitations, math expressions must all be binary and encase in parens (i.e. (1+2)+3 and not 1+2+3)
+	- [ ] <,>,<=,>=
+    - [x] basic number math
+	    - note: due to parser limitations, math expressions must all be binary and encased in parens (i.e. (1+2)+3 and not 1+2+3)
 	- [x] write/writeln/printf?
 - [ ] dynamically load and index rule files (`?- [filename].`)
     - will require a runtime indexer which can index multiple files

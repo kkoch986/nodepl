@@ -2,6 +2,7 @@ const createDebug = require('debug');
 const Debug = createDebug("interpreter");
 import {
     ASTVariable,
+	ASTCut,
     ASTFact,
     ASTNumber,
     ASTString,
@@ -68,6 +69,10 @@ export default class Interpreter {
 		// just break it out here and pass it down
 		if(parse.head && parse.head === "fact") {
 			parse = parse.body;
+		}
+
+		if(parse[0] && parse[0].type && parse[0].type.replace(/^Q\./, "") === "cut") {
+			return new ASTFact(new ASTString("!"), []);
 		}
 
 		// handle infix directly
@@ -237,6 +242,9 @@ export default class Interpreter {
 		} else if(parse.head.replace(/^Q\./,"") === "fact") {
 			return this.consumeFact(parse.body);
 		} else if(parse.head.replace(/^Q\./,"") === "list") {
+			if(parse.body.length === 0) {
+				return new ASTFact(new ASTString("|"), []);
+			}
 			return this.consumeList(parse.body[0]);
 		}
 
@@ -267,7 +275,7 @@ export default class Interpreter {
 		// which isnt very meaningful as it would just result in the list
 		// [1,2,3,4,5,6]
 		// TODO: solid unit test coverage of this.
-		if(list.head && list.head === "cons") {
+		if(list.head && list.head === "Q.cons") {
 			let partA = list.body[0].body;
 			let partB = list.body[2].body;
 			// build the second half first then we can just glue it on

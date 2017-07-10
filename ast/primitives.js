@@ -1,6 +1,11 @@
 import ASTBase from "./base";
 
 /**
+ * Cut has no arguments.
+ **/
+class ASTCut extends ASTBase { }
+
+/**
  * Strings just have one argument, the string...
  **/
 class ASTString extends ASTBase {
@@ -63,9 +68,13 @@ class ASTVariable extends ASTString  {
 	}
 
 	ground(engine, binding={}) {
-		return engine.dereference(this, binding).ground(engine,binding);
+		let deref = engine.dereference(this, binding);
+		if(deref.getClass() === this.getClass() && deref.getValue() === this.getValue()) {
+			return this;
+		}
+		return deref.ground(engine,binding);
 	}
 }
 
 
-export { ASTString, ASTNumber, ASTVariable };
+export { ASTCut, ASTString, ASTNumber, ASTVariable };

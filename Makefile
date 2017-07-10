@@ -4,7 +4,7 @@ query:
 	npm start -- -q output/index.json
 
 compile:
-	npm start -- input/test.npl --output output/index.json -v
+	npm start -- input/test.npl --output output/index.json 
 
 chords:
 	npm start -- input/chords.P --output output/chords.json

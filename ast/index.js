@@ -1,5 +1,5 @@
 
-import {ASTNumber, ASTString, ASTVariable} from "./primitives";
+import {ASTCut, ASTNumber, ASTString, ASTVariable} from "./primitives";
 import ASTFact from "./fact";
 import ASTRule from "./rule";
 import ASTConcatenation from "./concatenation";
@@ -56,6 +56,7 @@ function Deserialize(obj) {
  * Export everything.
  **/
 export {
+	ASTCut,
 	ASTVariable,
 	ASTNumber,
 	ASTString,

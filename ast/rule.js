@@ -44,4 +44,8 @@ export default class ASTRule extends ASTBase {
 	extractVariables() {
 		throw "Rule doesnt support extract variables.";
 	}
+
+	pretty(engine=null,binding={}) {
+		return this.getHead().pretty() + " :- " + this.getBody().map(i => i.pretty()).join(", ");
+	}
 }
