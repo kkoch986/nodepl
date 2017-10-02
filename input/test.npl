@@ -1,4 +1,7 @@
 
+% Comment
+
+
 test(X,Y) :- Y is X - 1.
 sub(X,Y,R) :- R is X - Y.
 
@@ -9,3 +12,39 @@ nth([Result|Tail],Index,Result,Index) :- !.
 nth([Hd|Tail],Index,Result,Counter) :-
 	NewCounter is Counter + 1,
 	nth(Tail,Index,Result,NewCounter).
+
+
+voicings(Root, Key, Note, Chord) :-
+	each_diatonic_triad(Root, Key, [Note,_2,_3]),
+	Chord = [Note,_2,_3].
+
+each_diatonic_triad(Root, "Major", One) :-
+	major_scale(Root,[Root, _2, _3, _4, _5,_6,_7,_8]),
+	major_triad(Root, One).
+
+major_triad(Root, [Root,Third,Fifth]) :-
+	major_scale(Root, [Root, _2, Third, _4, Fifth,_6,_7,_8]).
+
+%% A major scale with the given root.
+major_scale(Root, [Root, N1, N2, N3, N4, N5, N6, N7]) :-
+	whole_step_up(Root, N1),
+	whole_step_up(N1, N2),
+	half_step_up(N2, N3),
+	whole_step_up(N3, N4),
+	whole_step_up(N4, N5),
+	whole_step_up(N5, N6),
+	half_step_up(N6, N7).
+
+whole_step_up(A,B) :- half_step_up(A,C), half_step_up(C,B).
+half_step_up("A","A#").
+half_step_up("A#","B").
+half_step_up("B","C").
+half_step_up("C","C#").
+half_step_up("C#","D").
+half_step_up("D","D#").
+half_step_up("D#","E").
+half_step_up("E","F").
+half_step_up("F","F#").
+half_step_up("F#","G").
+half_step_up("G","G#").
+half_step_up("G#","A").

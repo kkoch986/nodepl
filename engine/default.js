@@ -1,8 +1,12 @@
 import process from "process";
-import {ASTNumber} from "../ast";
+import {ASTNumber,ASTVariable} from "../ast";
 
 const createDebug = require('debug');
 const Debug = createDebug("resolver");
+
+const WARN = (...args) => {
+	console.warn("\n[Warning] ", ...args);
+};
 
 // TODO: use this to profile resolution
 const Profile = createDebug("profile:resolver");
@@ -118,9 +122,18 @@ export default class Default {
 	resolveMathExpr(expr, binding={}) {
 		// resolve the lhs first.
 		let lhs = this.resolveMathMult(expr.getLeftHand(), binding);
-
+		// Math expressions must be between ground numeric values only
+		if(lhs === false || isNaN(lhs)) {
+			WARN("Unbound math expression encountered.");
+			return false;
+		}
 		if(expr.getOperation()) {
 			let rhs = this.resolveMathMult(expr.getRightHand(), binding);
+			// Math expressions must be between ground numeric values only
+			if(rhs === false || isNaN(rhs)) {
+				WARN("Unbound math expression encountered.");
+				return false;
+			}
 			if(expr.getOperation() === "-") {
 				return lhs - rhs;
 			} else if(expr.getOperation() === "+") {
@@ -285,13 +298,36 @@ export default class Default {
 						// each statement in the body of the rule. if any of them fail
 						// the entire rule fails since the concatenation is an AND operation.
 						for(let b in bindings) {
+							// initial binding is the binding after we unify the head of the rule we found with the fact
+							// we are resolving against. we should use this binding in reverse to ground everything when
+							// we finish with the execution.
 							let initialBinding = this.unifyArray(statement.getHead().getBody(), fact.getBody(), bindings[b]);
+							if(!initialBinding) continue ;
 							for(let result of this.resolveStatements(statement.getBody(), [initialBinding])) {
-								let vars = fact.extractVariables();
+								// new binding should be what we return, it represents the binding we used to
+								// create this resolution but after we apply anything in it that was grounded
+								// during the resolution of the fact.
+								// result contains the environment after we resolved the rule against this
+								// binding (bindings[b]). We should use that with reference to initialBinding
+								// to figure out what can be grounded in newBinding
 								let newBinding = Object.assign({},bindings[b]);
+
+								let vars = fact.extractVariables();
 								for(let v in vars) {
-									if(result[vars[v]]) {
-										newBinding[vars[v]] = result[vars[v]].ground(this,result);
+									// TODO: handle when vars[v] is not a variable after dereference
+									let _var = this.dereference(new ASTVariable(vars[v]), newBinding);
+									if(_var.getClass() === "Fact") {
+										// console.log(JSON.stringify(result), "\n\n", JSON.stringify(initialBinding));
+										// TODO: maybe ground this here?
+										// newBinding = _var.ground(this,result);
+									} else if(_var.getClass() !== "Variable") {
+										// WARN("Non-variable encountered in grounding", JSON.stringify(_var), vars[v], newBinding);
+									} else {
+										_var = _var.getValue();
+										// console.log("HERE", _var, JSON.stringify(result));
+										if(result[_var]) {
+											newBinding[_var] = result[_var].ground(this,result);
+										}
 									}
 								}
 								yield newBinding;
@@ -306,6 +342,7 @@ export default class Default {
 			}
 		}
 	}
+
 
 	/**
 	 * Attempt to complete the given binding.

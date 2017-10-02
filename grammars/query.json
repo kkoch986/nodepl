@@ -1,8 +1,13 @@
 {
 	"symbols":{
+		"comment_line": {
+			"terminal":true,
+			"match":"\\%(.*)\n",
+			"includeInStream":false
+		},
 		"whitespace": {
 			"terminal":true,
-			"match":"[ \n\t]+",
+			"match":"[ \r\n\t]+",
 			"includeInStream":false
 		},
 		"numeric-literal":{

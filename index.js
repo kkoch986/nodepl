@@ -204,7 +204,7 @@ else if(args.src) {
 			}
 		});
 		rd.on("line", (line) => {
-			parser.append(line);
+			parser.append(line + "\n");
 		});
 	}
 
